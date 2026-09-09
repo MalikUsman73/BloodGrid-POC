@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-slate-100 text-slate-800 font-sans antialiased;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-crimson-500 ring-offset-2 ring-offset-white;
+  }
+  /* Tabular figures keep dashboard numbers from jittering. */
+  .nums { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .skeleton {
+    @apply bg-slate-200 rounded;
+    background-image: linear-gradient(90deg, #e2e8f0 0px, #eef2f7 200px, #e2e8f0 400px);
+    background-size: 1000px 100%;
+    @apply animate-shimmer;
+  }
+}
+
+/* Recharts: remove the default focus outline on chart surfaces */
+.recharts-wrapper:focus, .recharts-surface:focus { outline: none; }
