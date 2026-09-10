@@ -64,8 +64,8 @@ export default function Coordination() {
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-x-10 gap-y-8 items-start">
         <div>
-          <Section title="Partner facility" divide={false}>
-            <ul className="border border-slate-200 rounded-md divide-y divide-slate-100 max-w-[560px]">
+          <Section title="Partner facility">
+            <ul className="border border-slate-200 rounded-lg shadow-surface divide-y divide-slate-100 max-w-[560px]">
               {partnerBanks.map((partner) => {
                 const selected = partner.id === bankId;
                 return (
@@ -130,7 +130,7 @@ export default function Coordination() {
           </Section>
         </div>
 
-        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-md p-5">
+        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-lg shadow-surface p-5">
           <h2 className="text-[13px] font-semibold text-slate-900">Summary</h2>
           <div className="mt-3">
             <DetailList>

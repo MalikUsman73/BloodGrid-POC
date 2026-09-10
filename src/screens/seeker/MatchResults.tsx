@@ -12,7 +12,7 @@ import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   BloodGroup as BloodGroupTag, Button, EmptyState, Page, PageTitle,
-  Section, Status, StatusDot,
+  Status, StatusDot, Surface, SurfaceHeader,
 } from '../../components/ui';
 import { PrototypeNote, SimulatedMark } from '../../components/PrototypeLabels';
 import { CriteriaBars, CriteriaLegend } from '../../components/CriteriaBars';
@@ -71,13 +71,14 @@ export default function MatchResults() {
         />
       ) : (
         <div className="grid xl:grid-cols-[minmax(0,1fr)_460px] gap-x-8 gap-y-8 items-start">
-          <Section
-            title="Ranked by Prototype Match Score"
-            description={`Weighting adapts to urgency. For ${request.urgency.toLowerCase()} requests: ${CRITERIA.map((criterion) => `${criterion.label.toLowerCase()} ${Math.round(weights[criterion.key] * 100)} percent`).join(', ')}.`}
-            actions={<SimulatedMark />}
-            divide={false}
-          >
-            <div className="flex items-end gap-4 px-4 pb-2">
+          <Surface>
+            <SurfaceHeader
+              title="Ranked by Prototype Match Score"
+              description={`Weighting adapts to urgency. For ${request.urgency.toLowerCase()} requests: ${CRITERIA.map((criterion) => `${criterion.label.toLowerCase()} ${Math.round(weights[criterion.key] * 100)} percent`).join(', ')}.`}
+              actions={<SimulatedMark />}
+            />
+
+            <div className="flex items-end gap-4 px-4 pt-3 pb-2 bg-slate-50/70 border-b border-slate-200">
               <span className="w-5 shrink-0" />
               <div className="flex-1 max-w-[400px]">
                 <CriteriaLegend />
@@ -85,7 +86,7 @@ export default function MatchResults() {
               <span className="w-[34px] shrink-0" />
             </div>
 
-            <ul className="border border-slate-200 rounded-md divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100">
               {results.map((result) => {
                 const donor = result.donor;
                 const isSelected = donor.id === selected?.donor.id;
@@ -147,29 +148,29 @@ export default function MatchResults() {
               })}
             </ul>
 
-            <div className="mt-4">
+            <div className="px-5 py-4 border-t border-slate-200 bg-slate-50/50">
               <PrototypeNote ccp={1} />
             </div>
-          </Section>
+          </Surface>
 
           <div className="xl:sticky xl:top-[76px] space-y-5">
-            <div>
-              <h2 className="text-[14px] font-semibold text-slate-900 mb-1">Donor locations</h2>
-              <p className="text-[12.5px] text-slate-600 mb-3">
-                Approximate sector-level positions relative to the request in Sector {request.sector}.
-              </p>
+            <Surface>
+              <SurfaceHeader
+                title="Donor locations"
+                description={`Approximate sector-level positions relative to Sector ${request.sector}.`}
+              />
               <DonorMap
                 results={results}
                 selectedDonorId={selected?.donor.id ?? null}
                 hoveredDonorId={hoveredDonorId}
                 onSelect={setSelectedDonorId}
                 onHover={setHoveredDonorId}
-                className="h-[340px]"
+                className="h-[340px] border-0 rounded-none"
               />
-            </div>
+            </Surface>
 
             {selected && (
-              <div className="border border-slate-200 rounded-md p-4">
+              <Surface padded>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[13.5px] font-medium text-slate-900">{selected.donor.name}</p>
@@ -186,7 +187,7 @@ export default function MatchResults() {
                 >
                   View donor
                 </Button>
-              </div>
+              </Surface>
             )}
           </div>
         </div>

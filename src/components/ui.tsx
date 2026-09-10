@@ -1,10 +1,10 @@
 /**
  * BloodGrid interface primitives.
  *
- * The visual language is deliberately plain: white ground, hairline borders,
- * almost no shadow, and colour reserved for meaning. Content is organised into
- * sections separated by rules rather than floating cards, which keeps dense
- * clinical information readable.
+ * The application sits on a tinted ground with white surfaces on top, which is
+ * what lets dense information read as structured rather than as a wall. Colour
+ * is reserved for meaning: one brand hue for primary actions and blood-group
+ * tags, and a small set of status tones chosen from what a value means.
  */
 
 import React from 'react';
@@ -14,7 +14,7 @@ import type { Tone } from '../lib/status';
 /* ------------------------------------------------------------- Page frame */
 
 export function Page({ children }: { children: React.ReactNode }) {
-  return <div className="max-w-[1180px] mx-auto px-5 sm:px-8 py-7">{children}</div>;
+  return <div className="max-w-[1320px] mx-auto px-5 sm:px-7 py-6">{children}</div>;
 }
 
 export function PageTitle({
@@ -26,20 +26,22 @@ export function PageTitle({
   back?: { to: string; label: string };
 }) {
   return (
-    <div className="mb-7">
+    <div className="mb-6">
       {back && (
         <Link
           to={back.to}
-          className="inline-block text-[12px] text-slate-500 hover:text-slate-800 mb-2.5"
+          className="inline-flex items-center gap-1 text-[13px] text-slate-500 hover:text-slate-900 mb-2"
         >
-          {back.label}
+          <span aria-hidden="true">&larr;</span> {back.label}
         </Link>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[19px] font-semibold tracking-[-0.011em] text-slate-900">{title}</h1>
+          <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.015em] text-slate-900">
+            {title}
+          </h1>
           {description && (
-            <p className="mt-1 text-[13px] leading-[1.55] text-slate-600 max-w-[62ch]">
+            <p className="mt-1.5 text-[13.5px] leading-[1.55] text-slate-600 max-w-[76ch]">
               {description}
             </p>
           )}
@@ -50,27 +52,72 @@ export function PageTitle({
   );
 }
 
+/* ---------------------------------------------------------------- Surface */
+
 /**
- * A titled region of a page. Sections are separated by a rule, not by a card,
- * so a screen reads as one document rather than a scatter of tiles.
+ * A white content surface on the tinted ground. Most things on a screen belong
+ * inside one of these; it is the unit that makes the layout read as a product.
  */
+export function Surface({
+  children, className = '', padded = false,
+}: { children: React.ReactNode; className?: string; padded?: boolean }) {
+  return (
+    <div className={`border border-slate-200 rounded-lg shadow-surface ${padded ? 'p-5' : ''} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+export function SurfaceHeader({
+  title, description, actions, className = '',
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-5 py-3.5 border-b border-slate-200 ${className}`}>
+      <div className="min-w-0">
+        <h2 className="text-[14.5px] font-semibold text-slate-900">{title}</h2>
+        {description && (
+          <p className="mt-0.5 text-[12.5px] leading-[1.55] text-slate-600 max-w-[78ch]">
+            {description}
+          </p>
+        )}
+      </div>
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+    </div>
+  );
+}
+
+/** A small uppercase label, for panel sections and column groupings. */
+export function Eyebrow({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 ${className}`}>
+      {children}
+    </p>
+  );
+}
+
+/** A titled region of a page, used between surfaces. */
 export function Section({
-  title, description, actions, children, divide = true,
+  title, description, actions, children, className = '',
 }: {
   title?: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
-  divide?: boolean;
+  className?: string;
 }) {
   return (
-    <section className={divide ? 'border-t border-slate-200 pt-6 mt-7 first:border-0 first:pt-0 first:mt-0' : ''}>
+    <section className={className || 'mb-6'}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5 mb-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5 mb-3">
           <div className="min-w-0">
-            {title && <h2 className="text-[14px] font-semibold text-slate-900">{title}</h2>}
+            {title && <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>}
             {description && (
-              <p className="mt-1 text-[12.5px] leading-[1.55] text-slate-600 max-w-[68ch]">
+              <p className="mt-1 text-[13px] leading-[1.55] text-slate-600 max-w-[78ch]">
                 {description}
               </p>
             )}
@@ -80,17 +127,6 @@ export function Section({
       )}
       {children}
     </section>
-  );
-}
-
-/** A quiet bordered container, for things that genuinely are discrete objects. */
-export function Panel({
-  children, className = '', ...rest
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={`border border-slate-200 rounded-md bg-white ${className}`} {...rest}>
-      {children}
-    </div>
   );
 }
 
@@ -104,8 +140,8 @@ type ButtonProps = {
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 const BUTTON_VARIANTS = {
-  primary: 'bg-crimson-700 text-white border border-crimson-700 hover:bg-crimson-800 hover:border-crimson-800',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400',
+  primary: 'bg-crimson-700 text-white border border-crimson-700 hover:bg-crimson-800 hover:border-crimson-800 shadow-surface',
+  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 shadow-surface',
   quiet: 'bg-transparent text-slate-600 border border-transparent hover:bg-slate-100 hover:text-slate-900',
 };
 
@@ -115,7 +151,7 @@ export function Button({
   const classes = [
     'inline-flex items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap',
     'transition-colors disabled:opacity-45 disabled:pointer-events-none',
-    size === 'sm' ? 'text-[12.5px] px-2.5 py-1.5' : 'text-[13px] px-3.5 py-2',
+    size === 'sm' ? 'text-[13px] px-2.5 py-1.5' : 'text-[13.5px] px-3.5 py-2',
     BUTTON_VARIANTS[variant],
     block ? 'w-full' : '',
     className,
@@ -128,54 +164,50 @@ export function Button({
 /* ----------------------------------------------------------------- Status */
 
 const TONE_STYLES: Record<Tone, string> = {
-  neutral:   'bg-slate-100 text-slate-700',
-  info:      'bg-sky-50 text-sky-800',
-  good:      'bg-emerald-50 text-emerald-800',
-  attention: 'bg-amber-50 text-amber-900',
-  urgent:    'bg-red-50 text-red-800',
+  neutral:   'bg-slate-100 text-slate-700 ring-slate-200',
+  info:      'bg-sky-50 text-sky-800 ring-sky-200',
+  good:      'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  attention: 'bg-amber-50 text-amber-900 ring-amber-200',
+  urgent:    'bg-red-50 text-red-800 ring-red-200',
 };
 
 const DOT_STYLES: Record<Tone, string> = {
-  neutral:   'bg-slate-400',
-  info:      'bg-sky-500',
-  good:      'bg-emerald-500',
-  attention: 'bg-amber-500',
-  urgent:    'bg-red-500',
+  neutral: 'bg-slate-400', info: 'bg-sky-500', good: 'bg-emerald-500',
+  attention: 'bg-amber-500', urgent: 'bg-red-500',
 };
 
 export function Status({
   tone = 'neutral', children, className = '',
 }: { tone?: Tone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11.5px] font-medium ${TONE_STYLES[tone]} ${className}`}>
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[12px] font-medium ring-1 ring-inset ${TONE_STYLES[tone]} ${className}`}>
       {children}
     </span>
   );
 }
 
-/** Status shown as a labelled dot. Lighter than a filled chip in dense lists. */
+/** A labelled dot. Lighter than a filled chip where a list already has weight. */
 export function StatusDot({
   tone = 'neutral', children,
 }: { tone?: Tone; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[12.5px] text-slate-700">
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_STYLES[tone]}`} />
+    <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-700">
+      <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${DOT_STYLES[tone]}`} />
       {children}
     </span>
   );
 }
 
-/** Blood group, set in a monospaced-feeling tag so groups line up in lists. */
 export function BloodGroup({
   group, size = 'md',
 }: { group: string; size?: 'sm' | 'md' | 'lg' }) {
   const sizes = {
-    sm: 'text-[11.5px] px-1.5 py-0.5 min-w-[30px]',
-    md: 'text-[13px] px-2 py-1 min-w-[38px]',
-    lg: 'text-[15px] px-2.5 py-1.5 min-w-[46px]',
+    sm: 'text-[12px] px-1.5 py-0.5 min-w-[32px]',
+    md: 'text-[13.5px] px-2 py-1 min-w-[40px]',
+    lg: 'text-[18px] px-3 py-2 min-w-[54px]',
   };
   return (
-    <span className={`inline-flex items-center justify-center rounded font-semibold tabular-nums bg-crimson-50 text-crimson-800 ${sizes[size]}`}>
+    <span className={`inline-flex items-center justify-center rounded-md font-semibold tabular-nums bg-crimson-50 text-crimson-800 ring-1 ring-inset ring-crimson-200 ${sizes[size]}`}>
       {group}
     </span>
   );
@@ -183,13 +215,13 @@ export function BloodGroup({
 
 /* ------------------------------------------------------------------- Data */
 
-/**
- * A row of figures separated by rules. Replaces the grid of stat cards: the
- * same numbers, far less furniture.
- */
-export function FigureRow({ children }: { children: React.ReactNode }) {
+/** A row of figures inside a surface, divided by rules. */
+export function FigureRow({ children, columns = 4 }: { children: React.ReactNode; columns?: number }) {
   return (
-    <dl className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5 border border-slate-200 rounded-md px-5 py-4 bg-white">
+    <dl
+      className="grid divide-x divide-slate-200"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0,1fr))` }}
+    >
       {children}
     </dl>
   );
@@ -210,25 +242,24 @@ export function Figure({
     : tone === 'good' ? 'text-emerald-800'
     : 'text-slate-900';
   return (
-    <div className="min-w-0">
-      <dt className="text-[12px] text-slate-500">{label}</dt>
-      <dd className={`mt-1 text-[21px] font-semibold tabular-nums leading-none ${valueColour}`}>
+    <div className="px-5 py-4 min-w-0">
+      <dt className="text-[12.5px] text-slate-500">{label}</dt>
+      <dd className={`mt-1.5 text-[25px] font-semibold tabular-nums leading-none ${valueColour}`}>
         {value}
-        {unit && <span className="ml-1 text-[12.5px] font-normal text-slate-500">{unit}</span>}
+        {unit && <span className="ml-1 text-[13px] font-normal text-slate-500">{unit}</span>}
       </dd>
-      {note && <p className="mt-1.5 text-[12px] leading-snug text-slate-500">{note}</p>}
+      {note && <p className="mt-2 text-[12.5px] leading-snug text-slate-500">{note}</p>}
     </div>
   );
 }
 
-/** Label/value pairs, for summaries and detail panels. */
 export function DetailList({ children }: { children: React.ReactNode }) {
   return <dl className="divide-y divide-slate-100">{children}</dl>;
 }
 
 export function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2 text-[13px]">
+    <div className="flex items-start justify-between gap-4 py-2 text-[13.5px]">
       <dt className="text-slate-500 shrink-0">{label}</dt>
       <dd className="text-slate-900 text-right min-w-0">{children}</dd>
     </div>
@@ -237,10 +268,11 @@ export function Detail({ label, children }: { label: string; children: React.Rea
 
 /* ------------------------------------------------------------------ Table */
 
+/** Tables live inside a Surface, so they carry no border of their own. */
 export function Table({ children, minWidth = 720 }: { children: React.ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto border border-slate-200 rounded-md">
-      <table className="w-full text-[13px]" style={{ minWidth }}>{children}</table>
+    <div className="overflow-x-auto">
+      <table className="w-full text-[13.5px]" style={{ minWidth }}>{children}</table>
     </div>
   );
 }
@@ -249,7 +281,7 @@ export function Th({ children, align = 'left' }: { children?: React.ReactNode; a
   return (
     <th
       scope="col"
-      className={`px-3.5 py-2.5 font-medium text-[12px] text-slate-500 whitespace-nowrap border-b border-slate-200 ${
+      className={`px-4 py-2.5 font-medium text-[12px] uppercase tracking-[0.04em] text-slate-500 whitespace-nowrap border-b border-slate-200 bg-slate-50/70 ${
         align === 'right' ? 'text-right' : 'text-left'
       }`}
     >
@@ -262,7 +294,7 @@ export function Td({
   children, align = 'left', className = '',
 }: { children?: React.ReactNode; align?: 'left' | 'right'; className?: string }) {
   return (
-    <td className={`px-3.5 py-2.5 align-middle ${align === 'right' ? 'text-right' : ''} ${className}`}>
+    <td className={`px-4 py-3 align-middle ${align === 'right' ? 'text-right' : ''} ${className}`}>
       {children}
     </td>
   );
@@ -271,18 +303,15 @@ export function Td({
 /* ------------------------------------------------------------------- Bars */
 
 const BAR_COLOURS: Record<Tone, string> = {
-  neutral:   'bg-slate-400',
-  info:      'bg-sky-500',
-  good:      'bg-emerald-500',
-  attention: 'bg-amber-500',
-  urgent:    'bg-red-500',
+  neutral: 'bg-slate-400', info: 'bg-sky-500', good: 'bg-emerald-500',
+  attention: 'bg-amber-500', urgent: 'bg-red-500',
 };
 
 export function Bar({
   value, tone = 'neutral', className = '',
 }: { value: number; tone?: Tone; className?: string }) {
   return (
-    <div className={`h-1 w-full rounded-full bg-slate-150 bg-slate-200 overflow-hidden ${className}`}>
+    <div className={`h-1.5 w-full rounded-full bg-slate-200 overflow-hidden ${className}`}>
       <div
         className={`h-full rounded-full ${BAR_COLOURS[tone]}`}
         style={{ width: `${Math.max(0, Math.min(100, value * 100))}%` }}
@@ -294,7 +323,7 @@ export function Bar({
 /* ------------------------------------------------------------------ Forms */
 
 export const inputStyles =
-  'w-full text-[13px] px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 ' +
+  'w-full text-[13.5px] px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 ' +
   'placeholder:text-slate-400 focus:border-crimson-600 focus:ring-1 focus:ring-crimson-600 outline-none';
 
 export function Field({
@@ -302,11 +331,11 @@ export function Field({
 }: { label: string; hint?: string; children: React.ReactNode; htmlFor?: string }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block text-[12.5px] font-medium text-slate-700 mb-1.5">
+      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-slate-700 mb-1.5">
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1.5 text-[12px] leading-snug text-slate-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[12.5px] leading-snug text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -335,10 +364,10 @@ export function ChoiceGroup<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(option.value)}
-            className={`rounded-md border py-1.5 text-[13px] font-medium transition-colors ${
+            className={`rounded-md border py-2 text-[13.5px] font-medium transition-colors ${
               selected
                 ? 'border-crimson-700 bg-crimson-50 text-crimson-800'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
             }`}
           >
             {option.label}
@@ -355,20 +384,19 @@ export function EmptyState({
   title, message, action,
 }: { title: string; message: string; action?: React.ReactNode }) {
   return (
-    <div className="border border-dashed border-slate-300 rounded-md px-6 py-10 text-center">
-      <p className="text-[13.5px] font-medium text-slate-800">{title}</p>
-      <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-500 max-w-[46ch] mx-auto">{message}</p>
+    <div className="px-6 py-12 text-center">
+      <p className="text-[14px] font-medium text-slate-800">{title}</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500 max-w-[48ch] mx-auto">{message}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
 
-/** A short, bordered message. Used for confirmations and warnings alike. */
 export function Notice({
   tone = 'neutral', title, children,
 }: { tone?: Tone; title?: string; children?: React.ReactNode }) {
-  const borders: Record<Tone, string> = {
-    neutral:   'border-slate-200 bg-slate-50',
+  const surfaces: Record<Tone, string> = {
+    neutral:   'border-slate-200 bg-white',
     info:      'border-sky-200 bg-sky-50',
     good:      'border-emerald-200 bg-emerald-50',
     attention: 'border-amber-200 bg-amber-50',
@@ -379,10 +407,10 @@ export function Notice({
     attention: 'text-amber-900', urgent: 'text-red-900',
   };
   return (
-    <div className={`border rounded-md px-4 py-3 ${borders[tone]}`}>
-      {title && <p className={`text-[13px] font-semibold ${headings[tone]}`}>{title}</p>}
+    <div className={`border rounded-lg px-4 py-3 ${surfaces[tone]}`}>
+      {title && <p className={`text-[13.5px] font-semibold ${headings[tone]}`}>{title}</p>}
       {children && (
-        <div className={`text-[12.5px] leading-[1.6] text-slate-700 ${title ? 'mt-1' : ''}`}>
+        <div className={`text-[13px] leading-[1.6] text-slate-700 ${title ? 'mt-1' : ''}`}>
           {children}
         </div>
       )}

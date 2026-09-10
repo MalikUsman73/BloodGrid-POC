@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { BloodGroup } from '../../types';
 import {
-  Button, Figure, FigureRow, Page, PageTitle, Section,
+  Button, Figure, FigureRow, Page, PageTitle, Section, Surface, SurfaceHeader,
 } from '../../components/ui';
 import { Footnote, PrototypeNote, SimulatedMark } from '../../components/PrototypeLabels';
 import DemandChart, { DemandChartLegend } from '../../components/charts/DemandChart';
@@ -74,7 +74,8 @@ export default function DemandForecast() {
         })}
       </div>
 
-      <FigureRow>
+      <Surface className="mb-5">
+        <FigureRow>
         <Figure
           label="30-day average" value={series.trailingMean} unit="units/day"
           note="Trailing mean of recorded demand"
@@ -93,45 +94,49 @@ export default function DemandForecast() {
           tone={series.shortageRisk ? 'urgent' : 'good'}
           note={series.shortageRisk ? 'Demand exceeds cover' : 'Cover exceeds demand'}
         />
-      </FigureRow>
+        </FigureRow>
+      </Surface>
 
-      <Section title={`${group} demand`} actions={<SimulatedMark />}>
-        <DemandChart series={series} />
-        <div className="mt-3">
-          <DemandChartLegend />
+      <Surface className="mb-5">
+        <SurfaceHeader title={`${group} demand`} actions={<SimulatedMark />} />
+        <div className="p-5">
+          <DemandChart series={series} />
+          <div className="mt-3">
+            <DemandChartLegend />
+          </div>
+          <div className="mt-4 max-w-[760px]">
+            <PrototypeNote ccp={2} />
+          </div>
         </div>
-        <div className="mt-4 max-w-[720px]">
-          <PrototypeNote ccp={2} />
-        </div>
-      </Section>
+      </Surface>
 
       <Section title="What the signals say">
-        <div className="space-y-4 max-w-[720px]">
-          <div>
-            <p className="text-[13px] font-medium text-slate-900">
+        <div className="grid md:grid-cols-2 gap-5">
+          <Surface padded>
+            <p className="text-[13.5px] font-medium text-slate-900">
               {series.highDemand
                 ? `Demand for ${group} is expected to rise over the forecast period.`
                 : `Demand for ${group} is expected to stay within its normal range.`}
             </p>
-            <p className="mt-1 text-[12.5px] leading-[1.6] text-slate-600">
+            <p className="mt-1.5 text-[13px] leading-[1.6] text-slate-600">
               {series.highDemand
                 ? `The prototype forecast peaks at ${series.peakProjected} units per day around ${series.peakLabel}, against a 30-day average of ${series.trailingMean}. A group is flagged when the projected peak reaches 118 percent of that average.`
                 : `The projected peak of ${series.peakProjected} units per day stays below the threshold of 118 percent of the 30-day average of ${series.trailingMean}.`}
             </p>
-          </div>
+          </Surface>
 
-          <div>
-            <p className="text-[13px] font-medium text-slate-900">
+          <Surface padded>
+            <p className="text-[13.5px] font-medium text-slate-900">
               {series.shortageRisk
                 ? `Projected demand exceeds available cover by about ${series.projectedGap} units.`
                 : 'Projected demand stays within available cover.'}
             </p>
-            <p className="mt-1 text-[12.5px] leading-[1.6] text-slate-600">
+            <p className="mt-1.5 text-[13px] leading-[1.6] text-slate-600">
               {series.projectedTotal} units are projected over the next {FORECAST_DAYS} days.
               Cover is {series.currentUnits} units held plus {series.expectedCollection} units of
               expected routine collection, giving {series.projectedSupply} units.
             </p>
-          </div>
+          </Surface>
         </div>
       </Section>
 
@@ -139,7 +144,7 @@ export default function DemandForecast() {
         title="Simulated scenario factors"
         description="Illustrative inputs used to shape the demonstration data. They are not real causal findings, and no such relationship has been measured or validated in this project."
       >
-        <ul className="border border-slate-200 rounded-md divide-y divide-slate-100 max-w-[720px]">
+        <ul className="border border-slate-200 rounded-lg shadow-surface divide-y divide-slate-100 max-w-[720px]">
           {scenarioFactors.map((factor) => (
             <li key={factor.id} className="px-4 py-3">
               <div className="flex items-baseline justify-between gap-4">

@@ -75,7 +75,7 @@ export default function CreateRequest() {
 
       <form onSubmit={submitBloodRequest} className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-x-10 gap-y-8 items-start">
         <div>
-          <Section title="Requirement" divide={false}>
+          <Section title="Requirement">
             <div className="space-y-5 max-w-[520px]">
               <Field label="Blood group required">
                 <ChoiceGroup
@@ -148,7 +148,7 @@ export default function CreateRequest() {
           )}
         </div>
 
-        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-md p-5">
+        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-lg shadow-surface p-5">
           <h2 className="text-[13px] font-semibold text-slate-900">Summary</h2>
 
           <div className="mt-4 flex items-center gap-3">

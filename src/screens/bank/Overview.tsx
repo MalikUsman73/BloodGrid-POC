@@ -9,7 +9,8 @@
 
 import { Link } from 'react-router-dom';
 import {
-  Bar, Button, Page, PageTitle, Section, Status, Table, Td, Th,
+  Bar, Button, Figure, FigureRow, Page, PageTitle, Status,
+  Surface, SurfaceHeader, Table, Td, Th,
 } from '../../components/ui';
 import { SimulatedMark } from '../../components/PrototypeLabels';
 import { OWN_BANK, inventory, totalCapacity, totalUnitsHeld } from '../../mock/banks';
@@ -21,6 +22,9 @@ export default function BankOverview() {
   const planningItems = buildPlanningItems();
   const urgentItems = planningItems.filter((item) => item.priority === 'high');
   const filledShare = Math.round((totalUnitsHeld / totalCapacity) * 100);
+  const lowGroups = inventory.filter(
+    (item) => item.status === 'Low' || item.status === 'Critical',
+  );
 
   return (
     <Page>
@@ -30,8 +34,29 @@ export default function BankOverview() {
         actions={<Button to="/bank/demand">View demand and forecast</Button>}
       />
 
+      <Surface className="mb-5">
+        <FigureRow columns={4}>
+          <Figure label="Units held" value={totalUnitsHeld} note={`${filledShare} percent of capacity`} />
+          <Figure
+            label="Groups below target" value={lowGroups.length}
+            tone={lowGroups.length > 0 ? 'attention' : 'good'}
+            note={lowGroups.map((item) => item.bloodGroup).join(', ') || 'All groups healthy'}
+          />
+          <Figure
+            label="Flagged by forecast" value={planningItems.length}
+            tone={planningItems.length > 0 ? 'attention' : 'good'}
+            note="Elevated demand or shortage risk"
+          />
+          <Figure
+            label="Projected shortfall" value={urgentItems.length}
+            tone={urgentItems.length > 0 ? 'urgent' : 'good'}
+            note={urgentItems.length > 0 ? urgentItems.map((item) => item.bloodGroup).join(', ') : 'Cover is sufficient'}
+          />
+        </FigureRow>
+      </Surface>
+
       {urgentItems.length > 0 && (
-        <div className="mb-7 border border-red-200 rounded-md bg-red-50 px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-5 border border-red-200 rounded-lg bg-red-50 px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-red-900">
               {urgentItems.map((item) => item.bloodGroup).join(' and ')} may fall short in the next
@@ -45,7 +70,12 @@ export default function BankOverview() {
         </div>
       )}
 
-      <Section title="Stock by blood group" actions={<SimulatedMark />} divide={false}>
+      <Surface>
+        <SurfaceHeader
+          title="Stock by blood group"
+          description="Simulated inventory. Four groups carry a prototype demand series; the rest are shown for stock context."
+          actions={<SimulatedMark />}
+        />
         <Table minWidth={640}>
           <thead>
             <tr>
@@ -89,12 +119,7 @@ export default function BankOverview() {
             })}
           </tbody>
         </Table>
-
-        <p className="mt-3 text-[11.5px] leading-[1.6] text-slate-500">
-          Simulated inventory for demonstration. Four groups carry a prototype demand series; the
-          rest are shown for stock context only.
-        </p>
-      </Section>
+      </Surface>
     </Page>
   );
 }

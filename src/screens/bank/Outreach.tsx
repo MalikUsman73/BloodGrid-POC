@@ -70,7 +70,7 @@ export default function Outreach() {
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-x-10 gap-y-8 items-start">
         <div>
-          <Section title="Campaign" divide={false}>
+          <Section title="Campaign">
             <div className="space-y-5 max-w-[460px]">
               <Field label="Blood group in demand">
                 <ChoiceGroup
@@ -117,7 +117,7 @@ export default function Outreach() {
             {audience.length === 0 ? (
               <p className="text-[13px] text-slate-500">No donors match this filter.</p>
             ) : (
-              <ul className="border border-slate-200 rounded-md divide-y divide-slate-100 max-w-[560px] max-h-[320px] overflow-y-auto">
+              <ul className="border border-slate-200 rounded-lg shadow-surface divide-y divide-slate-100 max-w-[560px] max-h-[320px] overflow-y-auto">
                 {audience.map((donor) => (
                   <li key={donor.id} className="px-4 py-2.5 flex items-center justify-between gap-4">
                     <div className="min-w-0">
@@ -137,7 +137,7 @@ export default function Outreach() {
           </Section>
         </div>
 
-        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-md p-5">
+        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-lg shadow-surface p-5">
           <h2 className="text-[13px] font-semibold text-slate-900">Summary</h2>
           <div className="mt-3">
             <DetailList>

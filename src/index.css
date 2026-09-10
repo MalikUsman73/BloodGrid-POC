@@ -8,19 +8,23 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /*
+   * Tinted application ground with white content surfaces. This is what gives a
+   * data-dense product its structure: panels read as objects because the ground
+   * behind them is not the same colour.
+   */
   body {
-    @apply bg-white text-slate-900 font-sans;
-    font-size: 13px;
+    @apply bg-canvas text-slate-900 font-sans;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
-  /* Figures should not shift width as values change. */
   .tabular-nums { font-variant-numeric: tabular-nums; }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-crimson-600 ring-offset-1;
+    @apply outline-none ring-2 ring-crimson-600 ring-offset-1 ring-offset-white;
   }
 
-  /* Recharts adds a focus outline to its SVG surface; it is not focusable. */
   .recharts-wrapper:focus,
   .recharts-surface:focus { outline: none; }
 }

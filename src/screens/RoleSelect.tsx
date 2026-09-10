@@ -76,7 +76,7 @@ export default function RoleSelect() {
             proposal stage.
           </p>
 
-          <ul className="mt-8 border border-slate-200 rounded-md divide-y divide-slate-200">
+          <ul className="mt-8 border border-slate-200 rounded-lg shadow-surface divide-y divide-slate-200">
             {WORKSPACE_OPTIONS.map((option) => (
               <li key={option.role}>
                 <button

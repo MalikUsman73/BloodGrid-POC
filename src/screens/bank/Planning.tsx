@@ -43,7 +43,7 @@ export default function Planning() {
             ).length;
 
             return (
-              <Section key={item.id} divide={false}>
+              <Section key={item.id}>
                 <div className="border-l-2 pl-4"
                      style={{ borderColor: item.priority === 'high' ? '#dc2626' : '#f59e0b' }}>
                   <div className="flex flex-wrap items-center gap-2.5">

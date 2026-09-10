@@ -95,7 +95,7 @@ export default function DonorMap({
   const textScale = view.width / DEFAULT_VIEW.width;
 
   return (
-    <div className={`relative border border-slate-200 rounded-md overflow-hidden bg-white ${className}`}>
+    <div className={`relative border border-slate-200 rounded-lg shadow-surface overflow-hidden bg-white ${className}`}>
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}

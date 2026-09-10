@@ -83,7 +83,7 @@ export default function Conversation({ viewer }: { viewer: 'seeker' | 'donor' })
       />
 
       <div className="max-w-[620px]">
-        <div className="border border-slate-200 rounded-md">
+        <div className="border border-slate-200 rounded-lg shadow-surface">
           <div className="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between gap-3">
             <p className="text-[12.5px] text-slate-600">
               {request.facility}, Sector {request.sector}

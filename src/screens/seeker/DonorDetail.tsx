@@ -57,7 +57,7 @@ export default function DonorDetail() {
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-x-10 gap-y-8 items-start">
         <div>
-          <Section divide={false}>
+          <Section>
             <div className="flex items-center gap-4">
               <BloodGroupTag group={donor.bloodGroup} size="lg" />
               <div>
@@ -101,7 +101,7 @@ export default function DonorDetail() {
           </Section>
         </div>
 
-        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-md p-5">
+        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-lg shadow-surface p-5">
           <h2 className="text-[13px] font-semibold text-slate-900">Contact this donor</h2>
 
           {!sent && (

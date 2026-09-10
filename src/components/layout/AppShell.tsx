@@ -98,29 +98,29 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <p className="bg-slate-100 border-b border-slate-200 px-5 py-1.5 text-center text-[11.5px] text-slate-600">
+      <p className="bg-slate-900 px-5 py-1.5 text-center text-[12px] text-slate-300">
         Proposal-stage prototype. All data and all computational output shown here are simulated.
       </p>
 
       <header className="border-b border-slate-200 sticky top-0 z-20 bg-white">
-        <div className="max-w-[1180px] mx-auto px-5 sm:px-8 h-[52px] flex items-center justify-between gap-4">
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-7 h-[56px] flex items-center justify-between gap-4">
           <NavLink to="/" aria-label="BloodGrid home"><BloodGridLogo /></NavLink>
           <div className="flex items-center gap-4">
-            <span className="hidden md:inline text-[12.5px] text-slate-500">{workspace.context}</span>
+            <span className="hidden md:inline text-[13px] text-slate-500">{workspace.context}</span>
             <WorkspaceSwitcher />
           </div>
         </div>
       </header>
 
       <nav className="border-b border-slate-200 bg-white">
-        <div className="max-w-[1180px] mx-auto px-5 sm:px-8 flex gap-1 overflow-x-auto">
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-7 flex gap-1 overflow-x-auto">
           {workspace.nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `py-2.5 px-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                `py-3 px-3 text-[13.5px] whitespace-nowrap border-b-2 -mb-px transition-colors ${
                   isActive
                     ? 'border-crimson-700 text-slate-900 font-medium'
                     : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -135,9 +135,9 @@ export default function AppShell() {
 
       <main className="flex-1"><Outlet /></main>
 
-      <footer className="border-t border-slate-200 mt-12">
-        <div className="max-w-[1180px] mx-auto px-5 sm:px-8 py-4">
-          <p className="text-[11.5px] text-slate-500">
+      <footer className="border-t border-slate-200 mt-10 bg-white">
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-7 py-4">
+          <p className="text-[12px] text-slate-500">
             BloodGrid proposal-stage proof of concept. Simulated demonstration data throughout.
             NSGA-II optimisation and the demand forecasting model are implementation-phase work.
           </p>

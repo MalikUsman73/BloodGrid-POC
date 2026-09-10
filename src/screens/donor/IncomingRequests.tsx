@@ -40,7 +40,7 @@ export default function IncomingRequests() {
             const pending = entry.state === 'Sent';
 
             return (
-              <li key={entry.requestId} className="border border-slate-200 rounded-md">
+              <li key={entry.requestId} className="border border-slate-200 rounded-lg shadow-surface">
                 <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
                   <p className="text-[13px] font-medium text-slate-900">
                     {request.patientRef}

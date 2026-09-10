@@ -33,7 +33,7 @@ export default function DonorOverview() {
         }
       />
 
-      <Section title="Your donor record" divide={false}>
+      <Section title="Your donor record">
         <div className="max-w-[420px]">
           <DetailList>
             <Detail label="Blood group">{donor.bloodGroup}</Detail>
@@ -53,7 +53,7 @@ export default function DonorOverview() {
         title="Availability"
         description="Donors marked available carry more weight in BloodGrid's ranking."
       >
-        <div className="flex items-center justify-between gap-6 max-w-[420px] border border-slate-200 rounded-md px-4 py-3">
+        <div className="flex items-center justify-between gap-6 max-w-[420px] border border-slate-200 rounded-lg shadow-surface px-4 py-3">
           <div>
             <p className="text-[13px] font-medium text-slate-900">
               {donorAvailable ? 'Available to donate' : 'Not currently available'}
@@ -94,7 +94,7 @@ export default function DonorOverview() {
             application.
           </p>
         ) : (
-          <ul className="border border-slate-200 rounded-md divide-y divide-slate-100">
+          <ul className="border border-slate-200 rounded-lg shadow-surface divide-y divide-slate-100">
             {inbox.map((entry) => (
               <li key={`${entry.requestId}-${entry.donorId}`} className="px-4 py-3 flex items-center justify-between gap-4">
                 <div className="min-w-0">
