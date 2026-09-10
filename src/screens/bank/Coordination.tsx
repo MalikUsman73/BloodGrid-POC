@@ -1,213 +1,172 @@
 /**
- * Inter-bank coordination workflow (Tier 2).
+ * Inter-bank coordination.
  *
- * SCOPE NOTE — this is deliberately an ORDINARY APPLICATION WORKFLOW.
- * It raises a request to a partner facility and records it in session state.
- * It performs NO optimisation: no redistribution planning, no transportation
- * or routing optimisation, no allocation solver. It is not a third
- * computational component of this project, and must never be presented as one.
+ * Deliberately an ordinary application workflow: it raises a request to a
+ * partner facility and records it in session state. It runs no optimisation,
+ * no redistribution planning, no routing, and no allocation solver, and it is
+ * not a computational component of this project.
  *
- * Partner facilities and their indicative stock are fictional. No real blood
- * bank is integrated with, or partnered with, this project.
+ * Partner facilities and their indicative stock are fictional.
  */
 
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, CheckCircle2, Info, MapPin, Send } from 'lucide-react';
 import type { BloodGroup } from '../../types';
-import { PageBody, PageHeader } from '../../components/layout/AppShell';
-import { Badge, Button, Card, CardHeader, Field, SegmentedOptions, inputClass } from '../../components/ui';
-import { IllustrativeNote, SimulatedTag } from '../../components/SimulatedBadge';
+import {
+  Button, ChoiceGroup, Detail, DetailList, Field, Notice,
+  Page, PageTitle, Section, inputStyles,
+} from '../../components/ui';
+import { Footnote } from '../../components/PrototypeLabels';
 import { useApp } from '../../store/AppStore';
 import { partnerBanks } from '../../mock/banks';
 import { FORECAST_GROUPS } from '../../mock/demand';
-import { getSeries } from '../../engines/forecast';
+
+const DEFAULT_UNITS = 20;
+const MAX_UNITS = 200;
 
 export default function Coordination() {
-  const [params] = useSearchParams();
-  const { interBank, addInterBank } = useApp();
+  const [searchParams] = useSearchParams();
+  const { interBank, requestFromPartnerBank } = useApp();
 
-  const initialGroup = (params.get('group') as BloodGroup) ?? 'O+';
+  const requested = searchParams.get('group') as BloodGroup | null;
   const [group, setGroup] = useState<BloodGroup>(
-    FORECAST_GROUPS.includes(initialGroup) ? initialGroup : 'O+',
+    requested && FORECAST_GROUPS.includes(requested) ? requested : 'O+',
   );
-  const [units, setUnits] = useState(Number(params.get('units')) || 20);
+  const [units, setUnits] = useState(Number(searchParams.get('units')) || DEFAULT_UNITS);
   const [bankId, setBankId] = useState(partnerBanks[0].id);
-  const [sent, setSent] = useState<string | null>(null);
+  const [lastRequestId, setLastRequestId] = useState<string | null>(null);
 
-  const s = getSeries(group);
-  const bank = partnerBanks.find((b) => b.id === bankId)!;
+  const bank = partnerBanks.find((partner) => partner.id === bankId)!;
 
-  const submit = () => {
-    const req = addInterBank({ bankId: bank.id, bankName: bank.name, bloodGroup: group, units });
-    setSent(req.id);
-  };
+  function sendCoordinationRequest() {
+    const created = requestFromPartnerBank({
+      bankId: bank.id, bankName: bank.name, bloodGroup: group, units,
+    });
+    setLastRequestId(created.id);
+  }
 
   return (
-    <>
-      <PageHeader
-        title="Inter-Bank Coordination"
-        subtitle="Raise a coordination request with a partner facility. A standard application workflow — no optimisation is performed."
+    <Page>
+      <PageTitle
+        title="Inter-bank coordination"
+        description="Request units from a partner facility. A standard workflow, with no optimisation behind it."
+        back={{ to: '/bank/planning', label: 'Back to planning' }}
       />
 
-      <PageBody>
-        {/* Scope clarification, stated on the screen itself */}
-        <div className="mb-5 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-5 py-3.5">
-          <Info className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
-          <p className="text-xs text-sky-900 leading-relaxed">
-            <strong>Scope note:</strong> inter-bank coordination is an ordinary application workflow
-            in BloodGrid. It is not one of the project's computational components, and it performs no
-            redistribution, allocation, or transportation optimisation. The project's two
-            computational components are donor matching optimisation and blood demand predictive
-            analysis.
-          </p>
+      {lastRequestId && (
+        <div className="mb-7 max-w-[720px]">
+          <Notice tone="good" title={`Request ${lastRequestId} recorded`}>
+            {units} units of {group} requested from {bank.name}. Nothing has been transmitted:
+            this prototype records the request in the current session only.
+          </Notice>
         </div>
+      )}
 
-        {sent && (
-          <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 animate-fadeUp">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-900">
-                Coordination request {sent} recorded
-              </p>
-              <p className="mt-0.5 text-xs text-emerald-800 leading-relaxed">
-                {units} units of {group} requested from {bank.name}. Nothing has been transmitted —
-                this prototype records the request in session state only.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-5 items-start">
-          <div className="space-y-5">
-            <Card>
-              <CardHeader
-                title="Select partner facility"
-                subtitle="Fictional demonstration facilities — no real blood bank is integrated"
-                icon={<Building2 className="w-4 h-4" />}
-                action={<SimulatedTag />}
-              />
-              <ul className="divide-y divide-slate-100">
-                {partnerBanks.map((b) => {
-                  const active = b.id === bankId;
-                  const indicative = b.indicativeStock?.[group];
-                  return (
-                    <li key={b.id}>
-                      <button
-                        onClick={() => setBankId(b.id)}
-                        className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors ${
-                          active ? 'bg-crimson-50/60' : 'hover:bg-slate-50'
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-x-10 gap-y-8 items-start">
+        <div>
+          <Section title="Partner facility" divide={false}>
+            <ul className="border border-slate-200 rounded-md divide-y divide-slate-100 max-w-[560px]">
+              {partnerBanks.map((partner) => {
+                const selected = partner.id === bankId;
+                return (
+                  <li key={partner.id}>
+                    <button
+                      type="button"
+                      onClick={() => setBankId(partner.id)}
+                      className={`w-full text-left px-4 py-3 flex items-center gap-4 transition-colors ${
+                        selected ? 'bg-slate-50' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <span
+                        className={`w-3.5 h-3.5 rounded-full border-4 shrink-0 ${
+                          selected ? 'border-crimson-700 bg-white' : 'border-slate-300 bg-white'
                         }`}
-                      >
-                        <span className={`w-4 h-4 shrink-0 rounded-full border-[5px] transition-colors ${
-                          active ? 'border-crimson-600 bg-white' : 'border-slate-200 bg-white'
-                        }`} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-slate-900">{b.name}</p>
-                          <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" /> Sector {b.sector} · {b.distanceKm} km
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] uppercase tracking-wider text-slate-400">
-                            Indicative {group}
-                          </p>
-                          <p className="text-sm font-semibold text-slate-900 nums">
-                            {indicative ?? '—'}<span className="text-xs font-normal text-slate-400"> units</span>
-                          </p>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
-                <IllustrativeNote>
-                  Indicative stock figures are simulated demonstration values. In the implemented
-                  system these would come from a partner-facility integration, which is scheduled
-                  for the implementation phase.
-                </IllustrativeNote>
-              </div>
-            </Card>
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-medium text-slate-900">{partner.name}</span>
+                        <span className="block mt-0.5 text-[11.5px] text-slate-500">
+                          Sector {partner.sector}, {partner.distanceKm} km
+                        </span>
+                      </span>
+                      <span className="text-right shrink-0">
+                        <span className="block text-[13px] font-medium text-slate-900 tabular-nums">
+                          {partner.indicativeStock?.[group] ?? 0}
+                        </span>
+                        <span className="block text-[11px] text-slate-500">units of {group}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
 
-            <Card>
-              <CardHeader title="Request details" />
-              <div className="p-5 grid sm:grid-cols-2 gap-5">
-                <div className="sm:col-span-2">
-                  <Field label="Blood group required" required>
-                    <SegmentedOptions
-                      options={FORECAST_GROUPS.map((g) => ({ value: g, label: g }))}
-                      value={group} onChange={setGroup} columns={4}
-                    />
-                  </Field>
-                </div>
-                <Field label="Units requested" required hint="Prefilled from the indicative shortfall where available.">
-                  <input
-                    type="number" min={1} max={200} value={units}
-                    onChange={(e) => setUnits(Math.max(1, Number(e.target.value)))}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Requesting facility">
-                  <input type="text" value="Central Regional Blood Centre" readOnly className={`${inputClass} bg-slate-50 text-slate-500`} />
-                </Field>
-              </div>
-            </Card>
-          </div>
+            <div className="mt-3 max-w-[560px]">
+              <Footnote>
+                Indicative stock figures are simulated. In the implemented system these would come
+                from a partner-facility integration, which is implementation-phase work.
+              </Footnote>
+            </div>
+          </Section>
 
-          <div className="lg:sticky lg:top-20 space-y-4">
-            <Card>
-              <CardHeader title="Request summary" />
-              <div className="p-5 space-y-3">
-                <Row label="Blood group"><span className="font-semibold text-crimson-700 nums">{group}</span></Row>
-                <Row label="Units"><span className="nums">{units}</span></Row>
-                <Row label="Partner"><span className="text-right">{bank.name}</span></Row>
-                <Row label="Distance"><span className="nums">{bank.distanceKm} km</span></Row>
-                <Row label="Our signal">
-                  <Badge tone={s.shortageRisk ? 'red' : s.highDemand ? 'amber' : 'green'}>
-                    {s.shortageRisk ? 'Shortage risk' : s.highDemand ? 'Elevated demand' : 'Stable'}
-                  </Badge>
-                </Row>
-                <div className="pt-3 border-t border-slate-100">
-                  <Button full size="lg" onClick={submit}>
-                    <Send className="w-4 h-4" /> Send coordination request
-                  </Button>
-                </div>
-              </div>
-            </Card>
+          <Section title="Request">
+            <div className="space-y-5 max-w-[460px]">
+              <Field label="Blood group required">
+                <ChoiceGroup
+                  ariaLabel="Blood group required"
+                  options={FORECAST_GROUPS.map((option) => ({ value: option, label: option }))}
+                  value={group}
+                  onChange={setGroup}
+                />
+              </Field>
 
-            {interBank.length > 0 && (
-              <Card>
-                <CardHeader title="Requests this session" />
-                <ul className="divide-y divide-slate-100">
-                  {interBank.map((r) => (
-                    <li key={r.id} className="px-5 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-slate-900 nums">
-                          {r.units} units of {r.bloodGroup}
-                        </p>
-                        <Badge tone="blue">Pending</Badge>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                        {r.bankName} · {r.id}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-          </div>
+              <Field label="Units requested" htmlFor="coordination-units">
+                <input
+                  id="coordination-units" type="number" min={1} max={MAX_UNITS} value={units}
+                  onChange={(event) => setUnits(Math.max(1, Number(event.target.value)))}
+                  className={`${inputStyles} max-w-[120px]`}
+                />
+              </Field>
+            </div>
+          </Section>
         </div>
-      </PageBody>
-    </>
-  );
-}
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-3 text-xs">
-      <span className="text-slate-500 shrink-0">{label}</span>
-      <span className="text-slate-800 min-w-0">{children}</span>
-    </div>
+        <aside className="lg:sticky lg:top-[76px] border border-slate-200 rounded-md p-5">
+          <h2 className="text-[13px] font-semibold text-slate-900">Summary</h2>
+          <div className="mt-3">
+            <DetailList>
+              <Detail label="Blood group"><span className="tabular-nums font-medium">{group}</span></Detail>
+              <Detail label="Units"><span className="tabular-nums">{units}</span></Detail>
+              <Detail label="Partner">{bank.name}</Detail>
+              <Detail label="Distance"><span className="tabular-nums">{bank.distanceKm} km</span></Detail>
+            </DetailList>
+          </div>
+
+          <Button variant="primary" block className="mt-4" onClick={sendCoordinationRequest}>
+            Send request
+          </Button>
+
+          {interBank.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <h3 className="text-[12px] font-medium text-slate-700">This session</h3>
+              <ul className="mt-2 space-y-1.5">
+                {interBank.map((entry) => (
+                  <li key={entry.id} className="text-[12px] text-slate-600">
+                    <span className="tabular-nums">{entry.units} units of {entry.bloodGroup}</span>
+                    <span className="block text-slate-400 truncate">{entry.bankName}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <Footnote>
+              Inter-bank coordination is not a computational component of this project. BloodGrid
+              has exactly two: donor matching optimisation and blood demand predictive analysis.
+            </Footnote>
+          </div>
+        </aside>
+      </div>
+    </Page>
   );
 }

@@ -3,25 +3,24 @@
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-font-smoothing: antialiased; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-slate-100 text-slate-800 font-sans antialiased;
+    @apply bg-white text-slate-900 font-sans;
+    font-size: 13px;
   }
+
+  /* Figures should not shift width as values change. */
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
   :focus-visible {
-    @apply outline-none ring-2 ring-crimson-500 ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-crimson-600 ring-offset-1;
   }
-  /* Tabular figures keep dashboard numbers from jittering. */
-  .nums { font-variant-numeric: tabular-nums; }
-}
 
-@layer components {
-  .skeleton {
-    @apply bg-slate-200 rounded;
-    background-image: linear-gradient(90deg, #e2e8f0 0px, #eef2f7 200px, #e2e8f0 400px);
-    background-size: 1000px 100%;
-    @apply animate-shimmer;
-  }
+  /* Recharts adds a focus outline to its SVG surface; it is not focusable. */
+  .recharts-wrapper:focus,
+  .recharts-surface:focus { outline: none; }
 }
-
-/* Recharts: remove the default focus outline on chart surfaces */
-.recharts-wrapper:focus, .recharts-surface:focus { outline: none; }

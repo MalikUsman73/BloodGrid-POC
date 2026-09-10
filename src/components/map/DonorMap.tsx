@@ -1,248 +1,202 @@
 /**
- * OFFLINE DONOR MAP — self-contained SVG. No tile server, no map library,
- * no API key, no network request of any kind.
+ * Offline donor map, drawn as inline SVG.
  *
- * PRIVACY BY CONSTRUCTION:
- * Markers are drawn at generalised SECTOR centroids in a fictional map space.
- * The prototype holds no street addresses and no real coordinates, so an exact
- * donor residence cannot be displayed even in principle.
+ * No tile server, no mapping library, no API key, and no network request. The
+ * base layer is a stylised sector grid: a schematic, not a rendering of any
+ * real city. Real map integration is implementation-phase work.
  *
- * The base layer is a stylised sector grid. It is a schematic, not a
- * geographic rendering of any real city. Real map integration is scheduled for
- * the FYP implementation phase.
+ * Privacy is structural here. Markers sit at generalised sector centroids in a
+ * fictional coordinate space, and the prototype holds no addresses, so an exact
+ * donor location cannot be shown even by mistake.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Crosshair, Minus, Plus, ShieldCheck } from 'lucide-react';
 import type { MatchResult } from '../../types';
 import { REQUEST_ORIGIN, SECTORS } from '../../mock/donors';
 
-const VIEW = { x: 8, y: 12, w: 76, h: 62 };
-const MIN_W = 22;
-const MAX_W = 90;
+const DEFAULT_VIEW = { x: 8, y: 12, width: 76, height: 62 };
+const MIN_WIDTH = 22;
+const MAX_WIDTH = 90;
+const ZOOM_STEP = 1.25;
 
-/** Kilometres per map-space unit. Map space is fictional, not geographic. */
-const KM_PER_UNIT = 0.4;
+/** Kilometres per map unit. The map space is fictional, not geographic. */
+const KM_PER_MAP_UNIT = 0.4;
+const DISTANCE_RINGS_KM = [5, 10];
 
-const TIER_FILL: Record<string, string> = {
-  Excellent: '#059669',
-  Good: '#0284c7',
-  Moderate: '#d97706',
+const TIER_COLOUR: Record<string, string> = {
+  Excellent: '#047857',
+  Good: '#0369a1',
+  Moderate: '#b45309',
 };
 
 interface Props {
   results: MatchResult[];
-  selectedId?: string | null;
-  hoveredId?: string | null;
+  selectedDonorId?: string | null;
+  hoveredDonorId?: string | null;
   onSelect?: (donorId: string) => void;
   onHover?: (donorId: string | null) => void;
   className?: string;
-  /** Show the 5 km / 10 km reference rings around the request location. */
-  showRings?: boolean;
 }
 
 export default function DonorMap({
-  results, selectedId, hoveredId, onSelect, onHover, className = '', showRings = true,
+  results, selectedDonorId, hoveredDonorId, onSelect, onHover, className = '',
 }: Props) {
-  const [view, setView] = useState(VIEW);
+  const [view, setView] = useState(DEFAULT_VIEW);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const dragOrigin = useRef<{ pointerX: number; pointerY: number; viewX: number; viewY: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const zoom = useCallback((factor: number) => {
-    setView((v) => {
-      const w = Math.max(MIN_W, Math.min(MAX_W, v.w * factor));
-      const h = w * (VIEW.h / VIEW.w);
-      // Zoom about the centre of the current view.
-      const cx = v.x + v.w / 2;
-      const cy = v.y + v.h / 2;
-      return { x: cx - w / 2, y: cy - h / 2, w, h };
+  const zoomBy = useCallback((factor: number) => {
+    setView((current) => {
+      const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, current.width * factor));
+      const height = width * (DEFAULT_VIEW.height / DEFAULT_VIEW.width);
+      const centreX = current.x + current.width / 2;
+      const centreY = current.y + current.height / 2;
+      return { x: centreX - width / 2, y: centreY - height / 2, width, height };
     });
   }, []);
 
-  const reset = useCallback(() => setView(VIEW), []);
-
-  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    (e.target as Element).setPointerCapture?.(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
-    setDragging(true);
-  };
-
-  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!drag.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = ((e.clientX - drag.current.x) / rect.width) * view.w;
-    const dy = ((e.clientY - drag.current.y) / rect.height) * view.h;
-    setView((v) => ({ ...v, x: drag.current!.vx - dx, y: drag.current!.vy - dy }));
-  };
-
-  const endDrag = () => { drag.current = null; setDragging(false); };
-
-  // Wheel zoom, bound natively so it can be non-passive and not scroll the page.
-  useEffect(() => {
-    const el = svgRef.current;
-    if (!el) return;
-    const handler = (e: WheelEvent) => {
-      e.preventDefault();
-      zoom(e.deltaY > 0 ? 1.12 : 0.89);
+  function startPan(event: React.PointerEvent<SVGSVGElement>) {
+    (event.target as Element).setPointerCapture?.(event.pointerId);
+    dragOrigin.current = {
+      pointerX: event.clientX, pointerY: event.clientY,
+      viewX: view.x, viewY: view.y,
     };
-    el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
-  }, [zoom]);
+    setDragging(true);
+  }
 
-  const scale = VIEW.w / view.w;
-  /** Keep marker and label sizes visually stable while zooming. */
-  const k = 1 / scale;
+  function pan(event: React.PointerEvent<SVGSVGElement>) {
+    const origin = dragOrigin.current;
+    if (!origin || !svgRef.current) return;
+    const bounds = svgRef.current.getBoundingClientRect();
+    const deltaX = ((event.clientX - origin.pointerX) / bounds.width) * view.width;
+    const deltaY = ((event.clientY - origin.pointerY) / bounds.height) * view.height;
+    setView((current) => ({ ...current, x: origin.viewX - deltaX, y: origin.viewY - deltaY }));
+  }
+
+  function endPan() {
+    dragOrigin.current = null;
+    setDragging(false);
+  }
+
+  // Bound natively so the handler can be non-passive and not scroll the page.
+  useEffect(() => {
+    const element = svgRef.current;
+    if (!element) return;
+    function handleWheel(event: WheelEvent) {
+      event.preventDefault();
+      zoomBy(event.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+    }
+    element.addEventListener('wheel', handleWheel, { passive: false });
+    return () => element.removeEventListener('wheel', handleWheel);
+  }, [zoomBy]);
+
+  /** Keeps label sizes stable as the view scales. */
+  const textScale = view.width / DEFAULT_VIEW.width;
 
   return (
-    <div className={`relative rounded-xl overflow-hidden border border-slate-200 bg-[#eef3f8] ${className}`}>
+    <div className={`relative border border-slate-200 rounded-md overflow-hidden bg-white ${className}`}>
       <svg
         ref={svgRef}
-        viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+        viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
         className={`w-full h-full block touch-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
+        onPointerDown={startPan}
+        onPointerMove={pan}
+        onPointerUp={endPan}
+        onPointerLeave={endPan}
         role="img"
         aria-label="Approximate sector-level donor locations"
       >
-        <defs>
-          <pattern id="bgGrid" width="4" height="4" patternUnits="userSpaceOnUse">
-            <path d="M4 0 L0 0 0 4" fill="none" stroke="#dbe4ee" strokeWidth="0.15" />
-          </pattern>
-          <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="0.35" stdDeviation="0.35" floodColor="#0f172a" floodOpacity="0.28" />
-          </filter>
-        </defs>
-
-        <rect x={-20} y={-20} width={200} height={200} fill="url(#bgGrid)" />
-
-        {/* Green belt / open ground, for visual texture only */}
-        <ellipse cx={70} cy={20} rx={16} ry={9} fill="#dcece0" opacity="0.85" />
-        <ellipse cx={16} cy={66} rx={12} ry={7} fill="#dcece0" opacity="0.7" />
-
-        {/* Arterial roads */}
-        <g stroke="#cbd5e1" strokeLinecap="round" fill="none">
-          <path d="M10 38 H 78" strokeWidth="1.5" />
-          <path d="M10 53.5 H 78" strokeWidth="1.1" />
-          <path d="M42.5 16 V 70" strokeWidth="1.1" />
-          <path d="M18 16 V 70" strokeWidth="0.6" />
-          <path d="M59 16 V 70" strokeWidth="0.6" />
+        {/* Arterial roads, for orientation only */}
+        <g stroke="#eef2f6" strokeLinecap="round" fill="none">
+          <path d="M10 38 H 78" strokeWidth="1.2" />
+          <path d="M10 53.5 H 78" strokeWidth="0.9" />
+          <path d="M42.5 16 V 70" strokeWidth="0.9" />
         </g>
-        <text x={11} y={37.2} fontSize={1.5 * k} fill="#94a3b8" fontWeight={600}>KASHMIR HIGHWAY</text>
-        <text x={11} y={52.7} fontSize={1.5 * k} fill="#94a3b8" fontWeight={600}>SRINAGAR HIGHWAY</text>
 
-        {/* Commercial district block */}
-        <rect x={54} y={35.4} width={11} height={5.2} rx={0.8} fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.15" />
-        <text x={59.5} y={38.6} fontSize={1.5 * k} fill="#94a3b8" textAnchor="middle" fontWeight={600}>
-          BLUE AREA
-        </text>
-
-        {/* Sector zones */}
-        {SECTORS.map((s) => (
-          <g key={s.name}>
-            <rect
-              x={s.x - 3.6} y={s.y - 4.2} width={7.2} height={8.4} rx={0.9}
-              fill="#ffffff" stroke="#cfdae7" strokeWidth="0.2" opacity="0.92"
-            />
-            <text
-              x={s.x} y={s.y + 5.6} fontSize={1.7 * k} fill="#94a3b8"
-              textAnchor="middle" fontWeight={600}
-            >
-              {s.name}
-            </text>
-          </g>
+        {/* Sector labels. No boxes: the markers are the only objects that matter. */}
+        {SECTORS.map((sector) => (
+          <text
+            key={sector.name}
+            x={sector.x} y={sector.y + 5.4} fontSize={1.55 * textScale}
+            fill="#b3bfcd" textAnchor="middle" className="select-none"
+          >
+            {sector.name}
+          </text>
         ))}
 
-        {/* Distance reference rings around the request location */}
-        {showRings && [5, 10].map((km) => (
+        {/* Distance rings from the request location */}
+        {DISTANCE_RINGS_KM.map((km) => (
           <g key={km}>
             <circle
-              cx={REQUEST_ORIGIN.x} cy={REQUEST_ORIGIN.y} r={km / KM_PER_UNIT}
-              fill="none" stroke="#cf2544" strokeWidth={0.18} strokeDasharray="1.2 1.2" opacity={0.35}
+              cx={REQUEST_ORIGIN.x} cy={REQUEST_ORIGIN.y} r={km / KM_PER_MAP_UNIT}
+              fill="none" stroke="#cbd5e1" strokeWidth={0.16} strokeDasharray="1 1.2"
             />
             <text
-              x={REQUEST_ORIGIN.x} y={REQUEST_ORIGIN.y - km / KM_PER_UNIT + 1.6}
-              fontSize={1.5 * k} fill="#cf2544" opacity={0.65} textAnchor="middle" fontWeight={600}
+              x={REQUEST_ORIGIN.x} y={REQUEST_ORIGIN.y - km / KM_PER_MAP_UNIT + 1.5}
+              fontSize={1.4 * textScale} fill="#94a3b8" textAnchor="middle"
             >
               {km} km
             </text>
           </g>
         ))}
 
-        {/* Request origin */}
+        {/* Request location */}
         <g>
-          <circle
-            cx={REQUEST_ORIGIN.x} cy={REQUEST_ORIGIN.y} r={2.4}
-            fill="#cf2544" opacity={0.28} className="animate-pulseRing"
-            style={{ transformOrigin: `${REQUEST_ORIGIN.x}px ${REQUEST_ORIGIN.y}px` }}
-          />
-          <circle cx={REQUEST_ORIGIN.x} cy={REQUEST_ORIGIN.y} r={1.5} fill="#cf2544" stroke="#fff" strokeWidth={0.45} />
+          <circle cx={REQUEST_ORIGIN.x} cy={REQUEST_ORIGIN.y} r={1.3} fill="#98283a" stroke="#fff" strokeWidth={0.4} />
           <text
-            x={REQUEST_ORIGIN.x} y={REQUEST_ORIGIN.y - 2.8} fontSize={1.9 * k}
-            fill="#7d1732" textAnchor="middle" fontWeight={700}
+            x={REQUEST_ORIGIN.x} y={REQUEST_ORIGIN.y - 2.4} fontSize={1.7 * textScale}
+            fill="#7f2433" textAnchor="middle" fontWeight={600}
           >
             Request
           </text>
         </g>
 
-        {/* Donor markers, drawn so the selected pin sits on top */}
+        {/* Donors, with the selected marker drawn last so it sits on top */}
         {[...results]
-          .sort((a, b) => Number(a.donor.id === selectedId) - Number(b.donor.id === selectedId))
-          .map((r) => {
-            const d = r.donor;
-            const isSelected = d.id === selectedId;
-            const isHovered = d.id === hoveredId;
-            const emphasised = isSelected || isHovered;
-            const radius = (isSelected ? 2.5 : 2.0) * (isHovered && !isSelected ? 1.12 : 1);
-            const fill = TIER_FILL[r.tier] ?? '#0284c7';
-            // Small deterministic offset keeps co-located pins from overlapping.
-            const ox = ((r.rank % 3) - 1) * 0.9;
-            const oy = ((r.rank % 2) - 0.5) * 1.2;
+          .sort((a, b) => Number(a.donor.id === selectedDonorId) - Number(b.donor.id === selectedDonorId))
+          .map((result) => {
+            const donor = result.donor;
+            const selected = donor.id === selectedDonorId;
+            const hovered = donor.id === hoveredDonorId;
+            const emphasised = selected || hovered;
+            const radius = selected ? 2.2 : 1.8;
+            const colour = TIER_COLOUR[result.tier] ?? '#0369a1';
+            // A small deterministic offset stops co-located markers overlapping.
+            const offsetX = ((result.rank % 3) - 1) * 0.9;
+            const offsetY = ((result.rank % 2) - 0.5) * 1.2;
+            const x = donor.coords.x + offsetX;
+            const y = donor.coords.y + offsetY;
+
             return (
               <g
-                key={d.id}
-                onClick={(e) => { e.stopPropagation(); onSelect?.(d.id); }}
-                onPointerEnter={() => onHover?.(d.id)}
+                key={donor.id}
+                onClick={(event) => { event.stopPropagation(); onSelect?.(donor.id); }}
+                onPointerEnter={() => onHover?.(donor.id)}
                 onPointerLeave={() => onHover?.(null)}
                 className="cursor-pointer"
               >
-                {/* Approximate-zone halo — reinforces that this is not an address */}
+                <circle cx={x} cy={y} r={3} fill={colour} opacity={emphasised ? 0.14 : 0.07} />
                 <circle
-                  cx={d.coords.x + ox} cy={d.coords.y + oy} r={3.4}
-                  fill={fill} opacity={emphasised ? 0.16 : 0.09}
-                />
-                <circle
-                  cx={d.coords.x + ox} cy={d.coords.y + oy} r={radius}
-                  fill={fill} stroke="#ffffff" strokeWidth={isSelected ? 0.6 : 0.45}
-                  filter="url(#pinShadow)"
+                  cx={x} cy={y} r={radius} fill={colour}
+                  stroke="#ffffff" strokeWidth={selected ? 0.55 : 0.4}
                 />
                 <text
-                  x={d.coords.x + ox} y={d.coords.y + oy + radius * 0.42}
-                  fontSize={radius * 1.05} fill="#ffffff" textAnchor="middle" fontWeight={700}
+                  x={x} y={y + radius * 0.4} fontSize={radius * 0.95}
+                  fill="#ffffff" textAnchor="middle" fontWeight={600}
                   className="pointer-events-none select-none"
                 >
-                  {r.rank}
+                  {result.rank}
                 </text>
 
                 {emphasised && (
                   <g className="pointer-events-none">
-                    <rect
-                      x={d.coords.x + ox - 11} y={d.coords.y + oy - 9.6}
-                      width={22} height={6.2} rx={1} fill="#0f172a" opacity={0.92}
-                    />
-                    <text
-                      x={d.coords.x + ox} y={d.coords.y + oy - 7.1}
-                      fontSize={1.9 * k} fill="#fff" textAnchor="middle" fontWeight={700}
-                    >
-                      {d.name}
+                    <rect x={x - 10.5} y={y - 8.6} width={21} height={5.4} rx={0.6} fill="#0f172a" opacity={0.92} />
+                    <text x={x} y={y - 6.4} fontSize={1.75 * textScale} fill="#ffffff" textAnchor="middle" fontWeight={600}>
+                      {donor.name}
                     </text>
-                    <text
-                      x={d.coords.x + ox} y={d.coords.y + oy - 4.9}
-                      fontSize={1.6 * k} fill="#cbd5e1" textAnchor="middle"
-                    >
-                      {d.bloodGroup} · Sector {d.sector} · {d.distanceKm} km
+                    <text x={x} y={y - 4.3} fontSize={1.5 * textScale} fill="#cbd5e1" textAnchor="middle">
+                      {donor.bloodGroup}, Sector {donor.sector}, {donor.distanceKm} km
                     </text>
                   </g>
                 )}
@@ -251,53 +205,31 @@ export default function DonorMap({
           })}
       </svg>
 
-      {/* Controls */}
-      <div className="absolute top-3 right-3 flex flex-col gap-1">
-        <MapButton label="Zoom in" onClick={() => zoom(0.8)}><Plus className="w-4 h-4" /></MapButton>
-        <MapButton label="Zoom out" onClick={() => zoom(1.25)}><Minus className="w-4 h-4" /></MapButton>
-        <MapButton label="Reset view" onClick={reset}><Crosshair className="w-4 h-4" /></MapButton>
+      <div className="absolute top-2 right-2 flex flex-col">
+        <button
+          type="button" onClick={() => zoomBy(1 / ZOOM_STEP)} aria-label="Zoom in"
+          className="w-7 h-7 grid place-items-center bg-white border border-slate-300 rounded-t-md text-slate-600 hover:bg-slate-50 text-[15px] leading-none"
+        >
+          +
+        </button>
+        <button
+          type="button" onClick={() => zoomBy(ZOOM_STEP)} aria-label="Zoom out"
+          className="w-7 h-7 grid place-items-center bg-white border-x border-slate-300 text-slate-600 hover:bg-slate-50 text-[15px] leading-none"
+        >
+          &minus;
+        </button>
+        <button
+          type="button" onClick={() => setView(DEFAULT_VIEW)} aria-label="Reset view"
+          className="w-7 h-7 grid place-items-center bg-white border border-slate-300 rounded-b-md text-slate-600 hover:bg-slate-50 text-[10px] leading-none"
+        >
+          Fit
+        </button>
       </div>
 
-      {/* Legend */}
-      <div className="absolute top-3 left-3 rounded-lg bg-white/95 backdrop-blur border border-slate-200 px-3 py-2 shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Match tier</p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {(['Excellent', 'Good', 'Moderate'] as const).map((t) => (
-            <span key={t} className="flex items-center gap-1.5 text-[11px] text-slate-600">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: TIER_FILL[t] }} />
-              {t}
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
-            <span className="w-2.5 h-2.5 rounded-full bg-crimson-600" />
-            Request
-          </span>
-        </div>
-      </div>
-
-      {/* Privacy caption */}
-      <div className="absolute bottom-3 right-3 max-w-[15rem] rounded-lg bg-white/95 backdrop-blur border border-slate-200 px-3 py-2 shadow-sm">
-        <p className="flex items-start gap-1.5 text-[10px] text-slate-500 leading-relaxed">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-px" />
-          <span>
-            Approximate sector-level locations. Exact donor addresses are never stored or displayed.
-            Schematic offline map — not a geographic rendering.
-          </span>
-        </p>
-      </div>
+      <p className="absolute bottom-0 inset-x-0 bg-white/95 border-t border-slate-200 px-3 py-1.5 text-[11px] leading-snug text-slate-500">
+        Approximate sector-level locations. Donor addresses are never stored or displayed.
+        Schematic offline map.
+      </p>
     </div>
-  );
-}
-
-function MapButton({
-  children, onClick, label,
-}: { children: React.ReactNode; onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick} title={label} aria-label={label}
-      className="w-8 h-8 grid place-items-center rounded-lg bg-white/95 backdrop-blur border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white shadow-sm transition-colors"
-    >
-      {children}
-    </button>
   );
 }

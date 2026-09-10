@@ -1,184 +1,133 @@
 /**
- * Landing screen — establishes the core framing before anything else:
- * ONE application, TWO user groups, TWO computational components.
+ * Landing page.
+ *
+ * It has one job: make the framing clear before anything else is shown. One
+ * application, two user groups, two computational components.
  */
 
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight, Building2, Droplet, LineChart, Map, ShieldCheck, Users,
-} from 'lucide-react';
-import { BloodGridMark, BloodGridWordmark } from '../components/layout/AppShell';
-import { Badge, Button } from '../components/ui';
+import { BloodGridLogo } from '../components/layout/AppShell';
+import { Button } from '../components/ui';
+
+const BRANCHES = [
+  {
+    group: 'Individual users',
+    who: 'Blood seekers and donors',
+    component: 'CCP 1, donor matching optimisation',
+    future: 'Future implementation: NSGA-II multi-objective optimisation',
+    steps: ['Blood request', 'Compatible donors', 'Ranked donors', 'Request and conversation'],
+  },
+  {
+    group: 'Blood banks',
+    who: 'Blood-bank administrators',
+    component: 'CCP 2, blood demand predictive analysis',
+    future: 'Future implementation: trained forecasting model',
+    steps: ['Recorded demand', 'Prototype forecast', 'Shortage signal', 'Planning action'],
+  },
+];
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      {/* Prototype disclosure sits above everything, before the panel sees a single feature */}
-      <div className="bg-amber-100 border-b border-amber-200 px-4 py-2">
-        <p className="text-center text-[11px] sm:text-xs font-medium text-amber-900 max-w-4xl mx-auto leading-relaxed">
-          Proposal-stage prototype. All data shown is simulated demonstration data and all
-          computational output is simulated. NSGA-II optimisation and the forecasting model are
-          committed implementation components, not part of this prototype.
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <p className="bg-slate-100 border-b border-slate-200 px-5 py-2 text-center text-[11.5px] leading-[1.6] text-slate-600">
+        Proposal-stage prototype. All data shown is simulated demonstration data and all
+        computational output is simulated. NSGA-II optimisation and the forecasting model are
+        committed implementation work, not part of this prototype.
+      </p>
 
-      <header className="px-4 sm:px-6 lg:px-8 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <BloodGridMark size="lg" />
-            <div>
-              <BloodGridWordmark size="lg" />
-              <p className="text-[11px] text-slate-500 leading-3">Blood Coordination Platform</p>
-            </div>
-          </div>
-          <Button to="/enter" size="md">
-            Enter Demo <ArrowRight className="w-4 h-4" />
-          </Button>
+      <header className="border-b border-slate-200">
+        <div className="max-w-[900px] mx-auto px-5 sm:px-8 h-[52px] flex items-center justify-between">
+          <BloodGridLogo />
+          <Button variant="primary" size="sm" to="/enter">Enter the prototype</Button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="max-w-6xl mx-auto">
-
-          {/* Hero */}
-          <div className="max-w-3xl">
-            <Badge tone="red" dot className="mb-4">Final Year Project · Proposal Defense Prototype</Badge>
-            <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-semibold tracking-tight text-slate-900 leading-tight">
-              One platform connecting <span className="text-crimson-600">urgent blood requests</span> with
-              donors — and blood banks with what they will need next.
-            </h1>
-            <p className="mt-4 text-base text-slate-600 leading-relaxed">
-              BloodGrid brings individual donor coordination and blood-bank demand planning into a
-              single system, so that a request raised at the bedside and a shortage forming weeks
-              away are handled by the same platform.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button to="/enter" size="lg">
-                Start the demonstration <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button to="/enter" size="lg" variant="secondary">Choose a role</Button>
-            </div>
+      <main className="flex-1">
+        <div className="max-w-[900px] mx-auto px-5 sm:px-8 py-14">
+          <p className="text-[12px] font-medium uppercase tracking-wide text-slate-500">
+            Final year project, proposal defense prototype
+          </p>
+          <h1 className="mt-3 text-[30px] leading-[1.2] font-semibold tracking-[-0.02em] text-slate-900 max-w-[20ch]">
+            One platform for blood requests and blood supply.
+          </h1>
+          <p className="mt-4 text-[14px] leading-[1.65] text-slate-600 max-w-[62ch]">
+            BloodGrid connects a person searching for a donor with the donors who can actually
+            help, and gives blood banks a view of the demand forming over the weeks ahead. Both
+            run on the same system.
+          </p>
+          <div className="mt-7">
+            <Button variant="primary" to="/enter">Enter the prototype</Button>
           </div>
 
-          {/* Architecture diagram — the "one application" framing, made visual */}
-          <section className="mt-12">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
-              System framing
-            </h2>
-            <div className="bg-white border border-slate-200 rounded-xl shadow-card p-5 sm:p-8">
-              <div className="flex flex-col items-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-crimson-600 text-white font-semibold text-sm shadow-sm">
-                  <Droplet className="w-4 h-4" fill="currentColor" /> BLOODGRID
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1.5">a single integrated application</p>
+          <section className="mt-16 border-t border-slate-200 pt-10">
+            <h2 className="text-[14px] font-semibold text-slate-900">How the system is organised</h2>
+            <p className="mt-1.5 text-[13px] leading-[1.6] text-slate-600 max-w-[62ch]">
+              Two user groups, each with one computational component behind their workflow.
+            </p>
 
-                <div className="w-px h-6 bg-slate-300 mt-2" />
-                <div className="w-full max-w-3xl h-px bg-slate-300" />
+            <div className="mt-7 grid sm:grid-cols-2 gap-x-10 gap-y-9">
+              {BRANCHES.map((branch) => (
+                <div key={branch.group}>
+                  <h3 className="text-[13.5px] font-semibold text-slate-900">{branch.group}</h3>
+                  <p className="mt-0.5 text-[12.5px] text-slate-500">{branch.who}</p>
 
-                <div className="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8 pt-0">
-                  <Branch
-                    icon={Users}
-                    group="Individual Users"
-                    role="Blood seekers · Donors"
-                    steps={['Blood request', 'Candidate donors', 'Ranked donors', 'Map & contact']}
-                    ccpLabel="CCP 1 — Donor Matching Optimization"
-                    ccpFuture="Future: NSGA-II multi-objective optimization"
-                  />
-                  <Branch
-                    icon={Building2}
-                    group="Blood Banks"
-                    role="Blood-bank administrators"
-                    steps={['Historical demand', 'Prototype forecast', 'Shortage signal', 'Planning action']}
-                    ccpLabel="CCP 2 — Demand Predictive Analysis"
-                    ccpFuture="Future: trained forecasting model"
-                  />
+                  <p className="mt-3.5 text-[12.5px] font-medium text-crimson-800">
+                    {branch.component}
+                  </p>
+                  <p className="mt-0.5 text-[11.5px] text-slate-500">{branch.future}</p>
+
+                  <ol className="mt-4 space-y-1.5">
+                    {branch.steps.map((step, index) => (
+                      <li key={step} className="flex gap-2.5 text-[12.5px] text-slate-700">
+                        <span className="text-slate-400 tabular-nums">{index + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-              </div>
+              ))}
             </div>
           </section>
 
-          {/* Capability strip */}
-          <section className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Feature
-              icon={LineChart}
-              title="Two computational components"
-              body="Donor matching optimisation and blood demand predictive analysis — the two problems the project commits to solving."
-            />
-            <Feature
-              icon={Map}
-              title="Privacy-preserving geography"
-              body="Donors are located to sector level only. Exact residential addresses are never stored or displayed."
-            />
-            <Feature
-              icon={ShieldCheck}
-              title="Honest prototype status"
-              body="Every computational output in this build is labelled as simulated. No accuracy or evaluation results are claimed."
-            />
+          <section className="mt-12 border-t border-slate-200 pt-10">
+            <h2 className="text-[14px] font-semibold text-slate-900">What this prototype is</h2>
+            <dl className="mt-4 space-y-3.5 max-w-[68ch]">
+              <div>
+                <dt className="text-[13px] font-medium text-slate-800">Simulated, and labelled as such</dt>
+                <dd className="mt-0.5 text-[12.5px] leading-[1.6] text-slate-600">
+                  Both computational outputs are simulated. No accuracy or evaluation results are
+                  claimed anywhere, because none exist yet.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[13px] font-medium text-slate-800">Private by construction</dt>
+                <dd className="mt-0.5 text-[12.5px] leading-[1.6] text-slate-600">
+                  Donors are located to sector level, never to an address, and their contact
+                  details are never shown. Seekers and donors talk inside BloodGrid once a donor
+                  accepts a request.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[13px] font-medium text-slate-800">Runs offline</dt>
+                <dd className="mt-0.5 text-[12.5px] leading-[1.6] text-slate-600">
+                  No external services, no API keys, no network access required.
+                </dd>
+              </div>
+            </dl>
           </section>
         </div>
       </main>
 
-      <footer className="px-4 sm:px-6 lg:px-8 py-6 border-t border-slate-200 bg-white">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
-            BloodGrid — proposal-stage proof of concept. Simulated demonstration data throughout.
+      <footer className="border-t border-slate-200">
+        <div className="max-w-[900px] mx-auto px-5 sm:px-8 py-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[11.5px] text-slate-500">
+            BloodGrid proposal-stage proof of concept. Simulated demonstration data throughout.
           </p>
-          <Link to="/enter" className="text-xs font-medium text-crimson-700 hover:text-crimson-800">
-            Enter demonstration →
+          <Link to="/enter" className="text-[12px] font-medium text-crimson-800 hover:underline">
+            Enter the prototype
           </Link>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function Branch({
-  icon: Icon, group, role, steps, ccpLabel, ccpFuture,
-}: {
-  icon: React.ElementType; group: string; role: string;
-  steps: string[]; ccpLabel: string; ccpFuture: string;
-}) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className="w-px h-6 bg-slate-300" />
-      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center">
-        <div className="flex items-center justify-center gap-2">
-          <Icon className="w-4 h-4 text-slate-500" />
-          <p className="text-sm font-semibold text-slate-800">{group}</p>
-        </div>
-        <p className="text-[11px] text-slate-500 mt-0.5">{role}</p>
-      </div>
-
-      <div className="w-px h-4 bg-slate-300" />
-      <div className="w-full rounded-lg border border-crimson-200 bg-crimson-50 px-4 py-2.5 text-center">
-        <p className="text-xs font-semibold text-crimson-800">{ccpLabel}</p>
-        <p className="text-[10px] text-crimson-700/80 mt-0.5">{ccpFuture}</p>
-      </div>
-
-      <div className="w-px h-4 bg-slate-300" />
-      <ul className="w-full space-y-1.5">
-        {steps.map((s, i) => (
-          <li
-            key={s}
-            className="flex items-center gap-2 text-xs text-slate-600 bg-white border border-slate-200 rounded-md px-3 py-1.5"
-          >
-            <span className="w-4 h-4 shrink-0 grid place-items-center rounded bg-slate-100 text-[9px] font-bold text-slate-500">
-              {i + 1}
-            </span>
-            {s}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function Feature({ icon: Icon, title, body }: { icon: React.ElementType; title: string; body: string }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-card p-5">
-      <Icon className="w-5 h-5 text-crimson-600" />
-      <h3 className="mt-3 text-sm font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">{body}</p>
     </div>
   );
 }

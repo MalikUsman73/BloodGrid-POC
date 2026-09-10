@@ -1,44 +1,33 @@
 /**
- * ============================================================================
- * CCP 1 — DONOR MATCHING  ::  PROTOTYPE / SIMULATED MATCHING ENGINE
- * ============================================================================
+ * CCP 1: donor matching, prototype implementation.
  *
- * THIS IS NOT NSGA-II. NOTHING IN THIS FILE PERFORMS MULTI-OBJECTIVE
- * OPTIMISATION, NON-DOMINATED SORTING, CROWDING-DISTANCE CALCULATION, OR ANY
- * EVOLUTIONARY SEARCH. NO PARETO FRONT IS COMPUTED.
+ * This is not NSGA-II. Nothing here performs multi-objective optimisation,
+ * non-dominated sorting, crowding-distance calculation, or evolutionary search,
+ * and no Pareto front is produced.
  *
- * What this file does:
- *   1. Applies real ABO/Rh compatibility and a donation-interval eligibility
- *      rule to produce a feasible candidate set.
- *   2. Normalises five criteria to [0,1].
+ * What it does:
+ *   1. Applies ABO/Rh compatibility and the donation-interval rule to get a
+ *      feasible candidate set.
+ *   2. Normalises five criteria to the range 0 to 1.
  *   3. Combines them with urgency-dependent weights into a single
- *      "Prototype Match Score" for demonstration purposes.
+ *      Prototype Match Score.
  *
  * The five criteria are exposed on every result because they are the objectives
- * that the FUTURE implementation — NSGA-II multi-objective optimisation — is
- * intended to optimise over. Showing them communicates the problem structure
- * without claiming the optimiser exists.
- *
- * Output must always be presented in the UI as:
- *   "Prototype Match Score — Simulated Matching Output"
- *   "Future Implementation: NSGA-II Multi-Objective Optimization"
- *
- * The engine is fully deterministic: identical input always yields identical
- * ranking, so the live defense demonstration is exactly repeatable.
- * ============================================================================
+ * the future NSGA-II implementation will optimise over. Showing them explains
+ * the shape of the problem without claiming the optimiser exists.
  */
 
 import type {
   BloodGroup, Donor, MatchResult, MatchTier, ObjectiveVector, Urgency,
 } from '../types';
-import { clamp } from '../mock/seed';
+import { clamp01 } from '../mock/seed';
 import { MIN_DAYS_BETWEEN_DONATIONS } from '../mock/donors';
 
 /**
- * Standard ABO/Rh red-cell compatibility: which donor groups a given recipient
- * group can receive. This lookup is clinically standard, not simulated.
+ * Which donor groups each recipient group can receive. This lookup is standard
+ * clinical practice, not simulated.
  */
-export const COMPATIBILITY: Record<BloodGroup, BloodGroup[]> = {
+export const COMPATIBLE_DONOR_GROUPS: Record<BloodGroup, BloodGroup[]> = {
   'O-':  ['O-'],
   'O+':  ['O-', 'O+'],
   'A-':  ['O-', 'A-'],
@@ -50,123 +39,117 @@ export const COMPATIBILITY: Record<BloodGroup, BloodGroup[]> = {
 };
 
 export function isCompatible(recipient: BloodGroup, donor: BloodGroup): boolean {
-  return COMPATIBILITY[recipient].includes(donor);
+  return COMPATIBLE_DONOR_GROUPS[recipient].includes(donor);
 }
 
 /**
- * Urgency-dependent criterion weights.
+ * Criterion weights by urgency.
  *
- * These vary by urgency precisely because no single ranking is optimal across
- * all requests — which is the motivation for the future multi-objective
- * treatment. They are hand-chosen demonstration weights, not learned or tuned.
+ * These differ by urgency because no single ordering suits every request, which
+ * is the motivation for treating this as a multi-objective problem later. They
+ * are hand-chosen demonstration weights, not learned or tuned.
  */
-export const WEIGHTS: Record<Urgency, ObjectiveVector> = {
+export const CRITERION_WEIGHTS: Record<Urgency, ObjectiveVector> = {
   Critical: { compatibility: 0.30, proximity: 0.32, availability: 0.24, recency: 0.06, reliability: 0.08 },
   Urgent:   { compatibility: 0.30, proximity: 0.24, availability: 0.22, recency: 0.12, reliability: 0.12 },
   Routine:  { compatibility: 0.28, proximity: 0.14, availability: 0.18, recency: 0.22, reliability: 0.18 },
 };
 
-export const CRITERIA: { key: keyof ObjectiveVector; label: string; hint: string }[] = [
-  { key: 'compatibility', label: 'Compatibility', hint: 'Exact group match scores highest; compatible alternates score slightly lower.' },
-  { key: 'proximity',     label: 'Proximity',     hint: 'Derived from approximate sector-level distance to the request location.' },
-  { key: 'availability',  label: 'Availability',  hint: 'Donor-declared availability state at the time of the request.' },
-  { key: 'recency',       label: 'Donation Recency', hint: 'Longer since last donation is preferred for donor wellbeing.' },
-  { key: 'reliability',   label: 'Reliability',   hint: 'Simulated response history, completed donations, and verification state.' },
+export const CRITERIA: { key: keyof ObjectiveVector; label: string; description: string }[] = [
+  { key: 'compatibility', label: 'Compatibility', description: 'An exact group match scores highest; a compatible alternate scores slightly lower.' },
+  { key: 'proximity',     label: 'Proximity',     description: 'Based on approximate sector-level distance to the request location.' },
+  { key: 'availability',  label: 'Availability',  description: 'The availability the donor has declared.' },
+  { key: 'recency',       label: 'Donation recency', description: 'A longer gap since the last donation is preferred for donor wellbeing.' },
+  { key: 'reliability',   label: 'Reliability',   description: 'Simulated response history, completed donations, and verification state.' },
 ];
 
-/** Maximum distance used to normalise proximity, in kilometres. */
+/** Distance at which the proximity criterion reaches zero, in kilometres. */
 const PROXIMITY_HORIZON_KM = 16;
+/** Gap beyond the minimum interval at which recency reaches its maximum, in days. */
+const RECENCY_HORIZON_DAYS = 180;
 
-function objectivesFor(donor: Donor, recipient: BloodGroup): ObjectiveVector {
-  const compatibility = donor.bloodGroup === recipient ? 1.0 : 0.85;
+const AVAILABILITY_SCORE = { Available: 1, Limited: 0.55, Unavailable: 0 };
 
-  const proximity = clamp(1 - donor.distanceKm / PROXIMITY_HORIZON_KM);
+const TIER_THRESHOLDS: { min: number; tier: MatchTier }[] = [
+  { min: 84, tier: 'Excellent' },
+  { min: 70, tier: 'Good' },
+  { min: 0,  tier: 'Moderate' },
+];
 
-  const availability =
-    donor.availability === 'Available' ? 1.0 :
-    donor.availability === 'Limited'   ? 0.55 : 0.0;
-
-  const recency = clamp((donor.lastDonationDays - MIN_DAYS_BETWEEN_DONATIONS) / 180);
-
-  const reliability = clamp(
-    0.6 * donor.responseRate +
-    0.3 * clamp(donor.completedDonations / 10) +
-    0.1 * (donor.verified ? 1 : 0),
-  );
-
-  return { compatibility, proximity, availability, recency, reliability };
+function scoreObjectives(donor: Donor, recipient: BloodGroup): ObjectiveVector {
+  return {
+    compatibility: donor.bloodGroup === recipient ? 1 : 0.85,
+    proximity: clamp01(1 - donor.distanceKm / PROXIMITY_HORIZON_KM),
+    availability: AVAILABILITY_SCORE[donor.availability],
+    recency: clamp01((donor.lastDonationDays - MIN_DAYS_BETWEEN_DONATIONS) / RECENCY_HORIZON_DAYS),
+    reliability: clamp01(
+      0.6 * donor.responseRate +
+      0.3 * clamp01(donor.completedDonations / 10) +
+      0.1 * (donor.verified ? 1 : 0),
+    ),
+  };
 }
 
-function tierFor(score: number): MatchTier {
-  if (score >= 84) return 'Excellent';
-  if (score >= 70) return 'Good';
-  return 'Moderate';
+function tierForScore(score: number): MatchTier {
+  return TIER_THRESHOLDS.find((threshold) => score >= threshold.min)!.tier;
 }
 
-export interface MatchInput {
-  bloodGroup: BloodGroup;
-  urgency: Urgency;
-}
-
-export interface MatchOutcome {
+export interface MatchingOutcome {
   results: MatchResult[];
-  /** Diagnostics shown in the UI so the filtering is transparent, not hidden. */
+  /** Screening counts, shown in the interface so the filtering stays visible. */
   poolSize: number;
   incompatibleCount: number;
-  ineligibleCount: number;
+  withinIntervalCount: number;
 }
 
 /**
- * Run the SIMULATED matching engine.
- * Deterministic and stable: ties break by distance, then donor id.
+ * Run the prototype matching engine. Deterministic and stable: ties break by
+ * distance, then by donor id.
  */
-export function runMatching(donors: Donor[], input: MatchInput): MatchOutcome {
-  const weights = WEIGHTS[input.urgency];
-
+export function rankDonorsForRequest(
+  donors: Donor[],
+  request: { bloodGroup: BloodGroup; urgency: Urgency },
+): MatchingOutcome {
+  const weights = CRITERION_WEIGHTS[request.urgency];
   let incompatibleCount = 0;
-  let ineligibleCount = 0;
+  let withinIntervalCount = 0;
 
-  // Stage 1 — hard feasibility filter.
-  const feasible = donors.filter((d) => {
-    if (!isCompatible(input.bloodGroup, d.bloodGroup)) { incompatibleCount++; return false; }
-    if (!d.eligible) { ineligibleCount++; return false; }
+  const feasible = donors.filter((donor) => {
+    if (!isCompatible(request.bloodGroup, donor.bloodGroup)) { incompatibleCount += 1; return false; }
+    if (!donor.eligible) { withinIntervalCount += 1; return false; }
     return true;
   });
 
-  // Stages 2 & 3 — normalise criteria, then combine with urgency weights.
   const scored = feasible.map((donor) => {
-    const objectives = objectivesFor(donor, input.bloodGroup);
-    const raw =
-      weights.compatibility * objectives.compatibility +
-      weights.proximity     * objectives.proximity +
-      weights.availability  * objectives.availability +
-      weights.recency       * objectives.recency +
-      weights.reliability   * objectives.reliability;
-    const score = Math.round(raw * 100);
-    return { donor, objectives, score, tier: tierFor(score), rank: 0 };
+    const objectives = scoreObjectives(donor, request.bloodGroup);
+    const weighted = CRITERIA.reduce(
+      (total, criterion) => total + weights[criterion.key] * objectives[criterion.key],
+      0,
+    );
+    const score = Math.round(weighted * 100);
+    return { donor, objectives, score, tier: tierForScore(score), rank: 0 };
   });
 
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    if (a.donor.distanceKm !== b.donor.distanceKm) return a.donor.distanceKm - b.donor.distanceKm;
-    return a.donor.id.localeCompare(b.donor.id);
-  });
-
-  scored.forEach((r, i) => { r.rank = i + 1; });
+  scored.sort((a, b) =>
+    b.score - a.score ||
+    a.donor.distanceKm - b.donor.distanceKm ||
+    a.donor.id.localeCompare(b.donor.id),
+  );
+  scored.forEach((result, index) => { result.rank = index + 1; });
 
   return {
     results: scored,
     poolSize: donors.length,
     incompatibleCount,
-    ineligibleCount,
+    withinIntervalCount,
   };
 }
 
-/** Stages shown during the matching processing screen. Presentation only. */
-export const MATCHING_STAGES = [
-  'Reading blood request parameters',
-  'Screening donor pool for ABO/Rh compatibility',
-  'Applying donation-interval eligibility rules',
-  'Evaluating proximity, availability, recency and reliability',
-  'Producing prototype ranking',
+/** Steps shown while the matching screen is on display. */
+export const MATCHING_STEPS = [
+  'Reading request parameters',
+  'Screening the donor pool for compatibility',
+  'Applying donation-interval eligibility',
+  'Scoring proximity, availability, recency and reliability',
+  'Producing the prototype ranking',
 ];

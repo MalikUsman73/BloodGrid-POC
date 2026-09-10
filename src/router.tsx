@@ -2,19 +2,20 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import Landing from './screens/Landing';
 import RoleSelect from './screens/RoleSelect';
+import Conversation from './screens/Conversation';
 
-import SeekerDashboard from './screens/seeker/Dashboard';
+import SeekerOverview from './screens/seeker/Overview';
 import CreateRequest from './screens/seeker/CreateRequest';
 import Matching from './screens/seeker/Matching';
 import MatchResults from './screens/seeker/MatchResults';
 import DonorDetail from './screens/seeker/DonorDetail';
-import Confirmation from './screens/seeker/Confirmation';
+import RequestSent from './screens/seeker/RequestSent';
 import MyRequests from './screens/seeker/MyRequests';
 
-import DonorDashboard from './screens/donor/Dashboard';
+import DonorOverview from './screens/donor/Overview';
 import IncomingRequests from './screens/donor/IncomingRequests';
 
-import BankDashboard from './screens/bank/Dashboard';
+import BankOverview from './screens/bank/Overview';
 import DemandForecast from './screens/bank/DemandForecast';
 import Planning from './screens/bank/Planning';
 import Outreach from './screens/bank/Outreach';
@@ -26,21 +27,20 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      // Individual — blood seeker
-      { path: '/seeker', element: <SeekerDashboard /> },
+      { path: '/seeker', element: <SeekerOverview /> },
       { path: '/seeker/request/new', element: <CreateRequest /> },
       { path: '/seeker/request/:id/matching', element: <Matching /> },
       { path: '/seeker/request/:id/matches', element: <MatchResults /> },
       { path: '/seeker/request/:id/donor/:donorId', element: <DonorDetail /> },
-      { path: '/seeker/request/:id/sent', element: <Confirmation /> },
+      { path: '/seeker/request/:id/sent/:donorId', element: <RequestSent /> },
+      { path: '/seeker/request/:id/conversation/:donorId', element: <Conversation viewer="seeker" /> },
       { path: '/seeker/requests', element: <MyRequests /> },
 
-      // Individual — donor (Tier 2)
-      { path: '/donor', element: <DonorDashboard /> },
+      { path: '/donor', element: <DonorOverview /> },
       { path: '/donor/requests', element: <IncomingRequests /> },
+      { path: '/donor/requests/:id/conversation', element: <Conversation viewer="donor" /> },
 
-      // Blood bank
-      { path: '/bank', element: <BankDashboard /> },
+      { path: '/bank', element: <BankOverview /> },
       { path: '/bank/demand', element: <DemandForecast /> },
       { path: '/bank/planning', element: <Planning /> },
       { path: '/bank/outreach', element: <Outreach /> },

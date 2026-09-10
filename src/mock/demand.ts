@@ -1,99 +1,92 @@
 /**
- * Base parameters for the SIMULATED demand series (CCP 2).
+ * Base parameters for the simulated demand series.
  *
- * PROTOTYPE / MOCK DATA — DEMONSTRATION ONLY.
- * These numbers are invented for the proposal-stage demonstration. They are not
- * derived from, and do not represent, any real blood bank's demand records.
+ * These numbers are invented for the demonstration. They are not derived from,
+ * and do not represent, any real blood bank's records.
  *
- * The scenario factors below (seasonal illness, public holidays, etc.) are
- * ILLUSTRATIVE SIMULATED SCENARIO FACTORS used to make the demonstration chart
- * legible. They are NOT real causal findings and no such relationship has been
- * studied, measured, or validated in this project.
+ * The scenario factors below (seasonal illness, holiday travel) are illustrative
+ * simulated inputs used to make the demonstration chart legible. They are not
+ * real causal findings, and no such relationship has been measured or validated
+ * in this project.
  */
 
 import type { BloodGroup, ScenarioFactor } from '../types';
+import { formatShortDate, toIsoDate } from '../lib/format';
 
-/** Fixed anchor date so every run produces identical dates and labels. */
-export const DEMO_TODAY = new Date(Date.UTC(2026, 8, 10)); // 10 Sep 2026
+/** Fixed anchor date, so every run produces identical dates and labels. */
+export const DEMO_TODAY = new Date(Date.UTC(2026, 8, 10));
 
 export const HISTORY_DAYS = 90;
 export const FORECAST_DAYS = 14;
 
-export interface DemandParams {
+export interface DemandParameters {
   base: number;
   /** Units per day of slow drift across the history window. */
   trend: number;
-  /** Seven-day pattern starting Sunday. Multiplicative. */
+  /** Seven-day pattern starting Sunday, applied multiplicatively. */
   weekly: number[];
-  amplitude: number;
+  jitter: number;
 }
-
-export const demandParams: Record<string, DemandParams> = {
-  'O+':  { base: 14.0, trend: 0.030, weekly: [0.92, 0.96, 1.00, 1.02, 1.05, 1.14, 1.09], amplitude: 0.06 },
-  'A+':  { base: 9.4,  trend: 0.012, weekly: [0.94, 0.98, 1.01, 1.03, 1.04, 1.08, 1.03], amplitude: 0.06 },
-  'B+':  { base: 8.0,  trend: 0.008, weekly: [0.95, 0.99, 1.00, 1.02, 1.03, 1.07, 1.04], amplitude: 0.05 },
-  'AB+': { base: 3.1,  trend: 0.004, weekly: [0.96, 1.00, 1.00, 1.01, 1.02, 1.05, 1.02], amplitude: 0.05 },
-};
 
 export const FORECAST_GROUPS: BloodGroup[] = ['O+', 'A+', 'B+', 'AB+'];
 
+export const demandParameters: Record<string, DemandParameters> = {
+  'O+':  { base: 14.0, trend: 0.030, weekly: [0.92, 0.96, 1.00, 1.02, 1.05, 1.14, 1.09], jitter: 0.06 },
+  'A+':  { base: 9.4,  trend: 0.012, weekly: [0.94, 0.98, 1.01, 1.03, 1.04, 1.08, 1.03], jitter: 0.06 },
+  'B+':  { base: 8.0,  trend: 0.008, weekly: [0.95, 0.99, 1.00, 1.02, 1.03, 1.07, 1.04], jitter: 0.05 },
+  'AB+': { base: 3.1,  trend: 0.004, weekly: [0.96, 1.00, 1.00, 1.01, 1.02, 1.05, 1.02], jitter: 0.05 },
+};
+
 /**
- * Illustrative simulated scenario factors.
- * Indices are day offsets: history days are 0..89, forecast days are 90..103.
+ * Illustrative simulated scenario factors. Day indices run 0 to 89 across the
+ * history window and 90 to 103 across the forecast window.
  */
 export const scenarioFactors: ScenarioFactor[] = [
   {
     id: 'SF-1',
     label: 'Simulated seasonal illness period',
-    description:
-      'Illustrative scenario factor used to shape the demonstration data. Not a measured or validated effect.',
+    description: 'Illustrative factor used to shape the demonstration data. Not a measured effect.',
     startIndex: 38, endIndex: 60, scope: 'history',
   },
   {
     id: 'SF-2',
-    label: 'Simulated public-holiday travel period',
-    description:
-      'Illustrative scenario factor representing a short elevated-trauma window. Demonstration only.',
+    label: 'Simulated holiday travel period',
+    description: 'Illustrative factor representing a short elevated-trauma window.',
     startIndex: 70, endIndex: 75, scope: 'history',
   },
   {
     id: 'SF-3',
     label: 'Simulated seasonal illness resurgence',
-    description:
-      'Illustrative scenario factor applied to the prototype forecast window. Not a prediction produced by a trained model.',
+    description: 'Illustrative factor applied to the forecast window, not a model prediction.',
     startIndex: 93, endIndex: 103, scope: 'forecast',
   },
 ];
 
-/** Multiplicative contribution of the illustrative scenario factors, per day index. */
+/** How strongly each group reacts to the scenario factors in this dataset. */
+const GROUP_SENSITIVITY: Record<string, number> = {
+  'O+': 1.0, 'A+': 0.55, 'B+': 0.42, 'AB+': 0.3,
+};
+
+const FACTOR_PEAK: Record<string, number> = { 'SF-1': 0.22, 'SF-2': 0.20, 'SF-3': 0.30 };
+
 export function scenarioMultiplier(dayIndex: number, group: BloodGroup): number {
-  // Universal-donor demand reacts most strongly in this simulated dataset.
-  const sensitivity = group === 'O+' ? 1.0 : group === 'A+' ? 0.55 : group === 'B+' ? 0.42 : 0.3;
-  let m = 1;
-  for (const f of scenarioFactors) {
-    if (dayIndex < f.startIndex || dayIndex > f.endIndex) continue;
-    const span = f.endIndex - f.startIndex;
-    const t = span === 0 ? 1 : (dayIndex - f.startIndex) / span;
-    // Smooth rise-and-hold curve so the bump reads as a period, not a spike.
-    const shape = Math.sin(Math.PI * Math.min(t * 1.35, 1));
-    const peak = f.id === 'SF-2' ? 0.20 : f.id === 'SF-3' ? 0.30 : 0.22;
-    m += shape * peak * sensitivity;
+  const sensitivity = GROUP_SENSITIVITY[group] ?? 0.3;
+  let multiplier = 1;
+  for (const factor of scenarioFactors) {
+    if (dayIndex < factor.startIndex || dayIndex > factor.endIndex) continue;
+    const span = factor.endIndex - factor.startIndex;
+    const progress = span === 0 ? 1 : (dayIndex - factor.startIndex) / span;
+    // A rise-and-hold curve, so the bump reads as a period rather than a spike.
+    const shape = Math.sin(Math.PI * Math.min(progress * 1.35, 1));
+    multiplier += shape * (FACTOR_PEAK[factor.id] ?? 0.2) * sensitivity;
   }
-  return m;
+  return multiplier;
 }
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-export function dayFromIndex(dayIndex: number): Date {
-  const d = new Date(DEMO_TODAY);
-  d.setUTCDate(d.getUTCDate() - (HISTORY_DAYS - 1) + dayIndex);
-  return d;
+export function dateForDayIndex(dayIndex: number): Date {
+  const date = new Date(DEMO_TODAY);
+  date.setUTCDate(date.getUTCDate() - (HISTORY_DAYS - 1) + dayIndex);
+  return date;
 }
 
-export function isoOf(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-export function labelOf(d: Date): string {
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
-}
+export { formatShortDate, toIsoDate };

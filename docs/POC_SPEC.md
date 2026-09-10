@@ -136,11 +136,11 @@ The resulting donors should be ranked.
 
 Example:
 
-1. Donor A — Excellent match
-2. Donor B — Excellent match
-3. Donor C — Good match
-4. Donor D — Good match
-5. Donor E — Moderate match
+1. Donor A, Excellent match
+2. Donor B, Excellent match
+3. Donor C, Good match
+4. Donor D, Good match
+5. Donor E, Moderate match
 
 The ranking should be internally consistent with the displayed information.
 
@@ -197,7 +197,7 @@ Do NOT display fake ML accuracy.
 
 Label forecast output:
 
-"Prototype forecast — simulated for proposal-stage demonstration"
+"Prototype forecast, simulated for proposal-stage demonstration"
 
 The UI may show:
 

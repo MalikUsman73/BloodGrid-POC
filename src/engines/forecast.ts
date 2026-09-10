@@ -1,194 +1,196 @@
 /**
- * ============================================================================
- * CCP 2 — BLOOD DEMAND PREDICTIVE ANALYSIS
- *          ::  PROTOTYPE / SIMULATED FORECAST GENERATOR
- * ============================================================================
+ * CCP 2: blood demand predictive analysis, prototype implementation.
  *
- * THIS IS NOT A TRAINED FORECASTING MODEL. NOTHING IN THIS FILE IS FITTED,
- * LEARNED, VALIDATED, OR EVALUATED. NO ACCURACY, ERROR METRIC, OR CONFIDENCE
- * LEVEL IS PRODUCED, AND NONE MAY BE DISPLAYED.
+ * This is not a trained forecasting model. Nothing here is fitted, learned,
+ * validated, or evaluated, and no accuracy, error metric, or confidence level
+ * is produced or displayed.
  *
- * What this file does:
- *   Composes a deterministic signal — baseline + trend + fixed weekly pattern
- *   + illustrative scenario factors + seeded jitter — across a 90-day history
- *   window and a 14-day forward window, then applies simple threshold rules to
- *   derive a high-demand signal and a shortage-risk signal.
+ * What it does: composes a deterministic signal from a baseline, a slow trend,
+ * a fixed weekly pattern, the illustrative scenario factors, and seeded jitter,
+ * across a 90-day history window and a 14-day forward window. Two threshold
+ * rules then derive the high-demand and shortage-risk signals.
  *
- * The "band" around the forward series is an ILLUSTRATIVE RANGE for visual
- * legibility. It is NOT a fitted statistical prediction interval and must never
- * be labelled as one.
- *
- * Output must always be presented in the UI as:
- *   "Prototype Forecast — Simulated for Proposal-Stage Demonstration"
- *   "Future Implementation: Trained Forecasting Model"
- * ============================================================================
+ * The band around the forward series is an illustrative range for legibility.
+ * It is not a fitted prediction interval and is never labelled as one.
  */
 
 import type { BloodGroup, DemandPoint, DemandSeries, ForecastPoint } from '../types';
 import {
-  FORECAST_DAYS, HISTORY_DAYS, dayFromIndex, demandParams, isoOf, labelOf,
-  scenarioFactors, scenarioMultiplier,
+  DEMO_TODAY, FORECAST_DAYS, FORECAST_GROUPS, HISTORY_DAYS,
+  dateForDayIndex, demandParameters, scenarioMultiplier,
 } from '../mock/demand';
-import { dailyCollection, getInventory } from '../mock/banks';
-import { mulberry32, round } from '../mock/seed';
+import { dailyCollectionRate, findInventory } from '../mock/banks';
+import { BLOODGRID_SEED, mulberry32, roundTo } from '../mock/seed';
+import { formatShortDate, toIsoDate } from '../lib/format';
 
-/** Threshold at which the forward window is flagged as an elevated-demand period. */
-const HIGH_DEMAND_RATIO = 1.18;
-/**
- * Shortage rule: projected consumption over the forward window is compared with
- * held stock PLUS routine collection expected over the same window. A margin
- * keeps small, recoverable deficits from raising an alert.
- */
+/** Peak demand above this share of the trailing mean counts as elevated. */
+const ELEVATED_DEMAND_RATIO = 1.18;
+/** Projected demand above this share of projected cover counts as a shortage risk. */
 const SHORTAGE_MARGIN = 0.98;
 /** Half-width of the illustrative range at the start of the forward window. */
-const BAND_BASE = 0.11;
+const BAND_START = 0.11;
+/** How much the illustrative range widens per day of horizon. */
+const BAND_WIDENING = 0.006;
+/** Days either side of the peak highlighted as the elevated window. */
+const ELEVATED_WINDOW_RADIUS = 3;
 
-function unitsAt(group: BloodGroup, dayIndex: number, jitter: number): number {
-  const p = demandParams[group];
-  const dow = dayFromIndex(dayIndex).getUTCDay();
+function demandOnDay(group: BloodGroup, dayIndex: number, jitter: number): number {
+  const parameters = demandParameters[group];
+  const dayOfWeek = dateForDayIndex(dayIndex).getUTCDay();
   const value =
-    (p.base + p.trend * dayIndex) *
-    p.weekly[dow] *
+    (parameters.base + parameters.trend * dayIndex) *
+    parameters.weekly[dayOfWeek] *
     scenarioMultiplier(dayIndex, group) *
-    (1 + (jitter * 2 - 1) * p.amplitude);
-  return Math.max(0, round(value, 1));
+    (1 + (jitter * 2 - 1) * parameters.jitter);
+  return Math.max(0, roundTo(value, 1));
 }
 
 function buildSeries(group: BloodGroup): DemandSeries {
-  // A per-group seed keeps each series independent yet perfectly reproducible.
-  const seedOffset = group.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const rng = mulberry32(20260910 + seedOffset);
+  // A per-group seed keeps each series independent yet fully reproducible.
+  const groupOffset = group.split('').reduce((total, char) => total + char.charCodeAt(0), 0);
+  const random = mulberry32(BLOODGRID_SEED + groupOffset);
 
   const history: DemandPoint[] = [];
-  for (let i = 0; i < HISTORY_DAYS; i++) {
-    const d = dayFromIndex(i);
-    history.push({ date: isoOf(d), label: labelOf(d), units: unitsAt(group, i, rng()) });
+  for (let index = 0; index < HISTORY_DAYS; index += 1) {
+    const date = dateForDayIndex(index);
+    history.push({
+      date: toIsoDate(date),
+      label: formatShortDate(date),
+      units: demandOnDay(group, index, random()),
+    });
   }
 
   const forecast: ForecastPoint[] = [];
-  for (let k = 0; k < FORECAST_DAYS; k++) {
-    const i = HISTORY_DAYS + k;
-    const d = dayFromIndex(i);
-    const projected = unitsAt(group, i, rng());
-    // The illustrative range widens with horizon purely for visual legibility.
-    const halfWidth = projected * (BAND_BASE + 0.006 * k);
+  for (let offset = 0; offset < FORECAST_DAYS; offset += 1) {
+    const index = HISTORY_DAYS + offset;
+    const date = dateForDayIndex(index);
+    const projected = demandOnDay(group, index, random());
+    const halfWidth = projected * (BAND_START + BAND_WIDENING * offset);
     forecast.push({
-      date: isoOf(d),
-      label: labelOf(d),
+      date: toIsoDate(date),
+      label: formatShortDate(date),
       projected,
-      bandLow: round(Math.max(0, projected - halfWidth), 1),
-      bandHigh: round(projected + halfWidth, 1),
+      bandLow: roundTo(Math.max(0, projected - halfWidth), 1),
+      bandHigh: roundTo(projected + halfWidth, 1),
     });
   }
 
   const trailing = history.slice(-30);
-  const trailingMean = round(trailing.reduce((a, p) => a + p.units, 0) / trailing.length, 1);
+  const trailingMean = roundTo(
+    trailing.reduce((total, point) => total + point.units, 0) / trailing.length, 1,
+  );
 
-  let peak = forecast[0];
-  for (const f of forecast) if (f.projected > peak.projected) peak = f;
+  const peak = forecast.reduce((best, point) => (point.projected > best.projected ? point : best));
+  const projectedTotal = Math.round(forecast.reduce((total, point) => total + point.projected, 0));
 
-  const projectedTotal = round(forecast.reduce((a, f) => a + f.projected, 0), 0);
-  const inv = getInventory(group);
-  const currentUnits = inv ? inv.units : 0;
-
-  const expectedCollection = round(dailyCollection(group) * FORECAST_DAYS, 0);
+  const currentUnits = findInventory(group)?.units ?? 0;
+  const expectedCollection = Math.round(dailyCollectionRate(group) * FORECAST_DAYS);
   const projectedSupply = currentUnits + expectedCollection;
-
-  const highDemand = peak.projected >= trailingMean * HIGH_DEMAND_RATIO;
-  const shortageRisk = projectedTotal > projectedSupply * SHORTAGE_MARGIN;
-  const projectedGap = Math.max(0, Math.round(projectedTotal - projectedSupply));
 
   return {
     bloodGroup: group,
     history,
     forecast,
-    factors: scenarioFactors,
     trailingMean,
     peakProjected: peak.projected,
     peakLabel: peak.label,
-    highDemand,
-    shortageRisk,
+    highDemand: peak.projected >= trailingMean * ELEVATED_DEMAND_RATIO,
+    shortageRisk: projectedTotal > projectedSupply * SHORTAGE_MARGIN,
     projectedTotal,
     currentUnits,
-    projectedGap,
     expectedCollection,
     projectedSupply,
+    projectedGap: Math.max(0, projectedTotal - projectedSupply),
   };
 }
 
-/** Precomputed at module load — identical on every run. */
-export const demandSeries: Record<string, DemandSeries> = {
-  'O+': buildSeries('O+'),
-  'A+': buildSeries('A+'),
-  'B+': buildSeries('B+'),
-  'AB+': buildSeries('AB+'),
-};
+/** Built once at module load, so every screen reads identical figures. */
+const seriesByGroup: Record<string, DemandSeries> = Object.fromEntries(
+  FORECAST_GROUPS.map((group) => [group, buildSeries(group)]),
+);
 
-export function getSeries(group: BloodGroup): DemandSeries {
-  return demandSeries[group] ?? demandSeries['O+'];
+export function getDemandSeries(group: BloodGroup): DemandSeries {
+  return seriesByGroup[group] ?? seriesByGroup['O+'];
 }
 
-/** Combined chart rows: history then forward window, on one continuous axis. */
-export function chartRows(s: DemandSeries) {
-  const rows: any[] = s.history.map((h) => ({
-    label: h.label, date: h.date, actual: h.units,
-    projected: null, band: null,
+export const TODAY_LABEL = formatShortDate(DEMO_TODAY);
+
+export interface DemandChartRow {
+  label: string;
+  recorded: number | null;
+  projected: number | null;
+  band: [number, number] | null;
+}
+
+/** History and forecast on one continuous axis, joined at the boundary. */
+export function buildChartRows(series: DemandSeries): DemandChartRow[] {
+  const rows: DemandChartRow[] = series.history.map((point) => ({
+    label: point.label, recorded: point.units, projected: null, band: null,
   }));
-  // Join the two lines at the boundary so the chart shows no visual gap.
-  const last = s.history[s.history.length - 1];
+
+  // Repeat the last recorded value on the forecast series so the lines meet.
+  const lastRecorded = series.history[series.history.length - 1];
   rows[rows.length - 1] = {
     ...rows[rows.length - 1],
-    projected: last.units, band: [last.units, last.units],
+    projected: lastRecorded.units,
+    band: [lastRecorded.units, lastRecorded.units],
   };
-  for (const f of s.forecast) {
+
+  for (const point of series.forecast) {
     rows.push({
-      label: f.label, date: f.date, actual: null,
-      projected: f.projected,
-      // Range area: [lower, upper]. Recharts fills only between the two,
-      // rather than down to the axis.
-      band: [f.bandLow, f.bandHigh],
+      label: point.label, recorded: null,
+      projected: point.projected, band: [point.bandLow, point.bandHigh],
     });
   }
   return rows;
 }
 
-export interface PlanningInsight {
+/** The stretch of the forward window highlighted as elevated, if any. */
+export function elevatedWindow(series: DemandSeries): { from: string; to: string } | null {
+  if (!series.highDemand) return null;
+  const peakIndex = series.forecast.findIndex((point) => point.projected === series.peakProjected);
+  const from = series.forecast[Math.max(0, peakIndex - ELEVATED_WINDOW_RADIUS)];
+  const to = series.forecast[Math.min(series.forecast.length - 1, peakIndex + ELEVATED_WINDOW_RADIUS)];
+  return { from: from.label, to: to.label };
+}
+
+export type PlanningPriority = 'high' | 'medium';
+
+export interface PlanningItem {
   id: string;
-  severity: 'critical' | 'elevated' | 'stable';
-  headline: string;
-  detail: string;
   bloodGroup: BloodGroup;
+  priority: PlanningPriority;
+  /** One line of context, so the planning screen need not repeat the analytics. */
+  context: string;
+  recommendedAction: string;
+  reason: string;
 }
 
 /**
- * Derive planning insights from the simulated signals using simple, explainable
- * threshold rules. These are workflow prompts for a human administrator, never
- * autonomous decisions.
+ * Turn the simulated signals into planning prompts using explainable threshold
+ * rules. These support an administrator's decision; nothing acts on its own.
  */
-export function planningInsights(): PlanningInsight[] {
-  const out: PlanningInsight[] = [];
-  for (const g of ['O+', 'A+', 'B+', 'AB+'] as BloodGroup[]) {
-    const s = getSeries(g);
-    if (s.shortageRisk && s.highDemand) {
-      out.push({
-        id: `PI-${g}`, severity: 'critical', bloodGroup: g,
-        headline: `Projected ${g} shortfall in the prototype forecast window`,
-        detail: `Simulated demand across the next ${FORECAST_DAYS} days totals ${s.projectedTotal} units. Held stock of ${s.currentUnits} units plus ${s.expectedCollection} units of routine collection gives ${s.projectedSupply} units of cover — an indicative shortfall of ${s.projectedGap} units, with demand peaking around ${s.peakLabel}.`,
-      });
-    } else if (s.highDemand) {
-      out.push({
-        id: `PI-${g}`, severity: 'elevated', bloodGroup: g,
-        headline: `Expected ${g} demand increase in the next forecast period`,
-        detail: `Simulated peak of ${s.peakProjected} units/day around ${s.peakLabel}, against a 30-day trailing average of ${s.trailingMean} units/day.`,
-      });
-    } else if (s.shortageRisk) {
-      out.push({
-        id: `PI-${g}`, severity: 'critical', bloodGroup: g,
-        headline: `${g} stock cover below projected consumption`,
-        detail: `Simulated consumption of ${s.projectedTotal} units over the forward window against ${s.projectedSupply} units of projected cover.`,
-      });
-    }
+export function buildPlanningItems(): PlanningItem[] {
+  const items: PlanningItem[] = [];
+
+  for (const group of FORECAST_GROUPS) {
+    const series = getDemandSeries(group);
+    if (!series.highDemand && !series.shortageRisk) continue;
+
+    const highPriority = series.shortageRisk;
+    items.push({
+      id: `PLAN-${group}`,
+      bloodGroup: group,
+      priority: highPriority ? 'high' : 'medium',
+      context: highPriority
+        ? `${group} demand is projected to stay elevated over the next ${FORECAST_DAYS} days, against ${series.projectedSupply} units of expected cover.`
+        : `${group} demand is projected to rise over the next ${FORECAST_DAYS} days, peaking around ${series.peakLabel}.`,
+      recommendedAction: highPriority ? 'Begin donor outreach' : 'Monitor and prepare outreach',
+      reason: highPriority
+        ? `Projected demand of ${series.projectedTotal} units exceeds available cover by about ${series.projectedGap} units.`
+        : `Projected peak of ${series.peakProjected} units per day is above the 30-day average of ${series.trailingMean}, though current cover is sufficient.`,
+    });
   }
-  const order = { critical: 0, elevated: 1, stable: 2 };
-  return out.sort((a, b) => order[a.severity] - order[b.severity]);
+
+  return items.sort((a, b) => (a.priority === b.priority ? 0 : a.priority === 'high' ? -1 : 1));
 }

@@ -1,109 +1,87 @@
 /**
- * Matching processing state.
+ * The matching step.
  *
- * This screen exists to make CCP 1 visible as a distinct step in the workflow.
- * The staged progression is a PRESENTATION DEVICE — the underlying prototype
- * engine is synchronous and deterministic. No computation is deferred or
- * hidden behind this screen.
+ * This screen exists so the matching stage is visible in the workflow rather
+ * than happening invisibly between two pages. The engine itself is synchronous
+ * and deterministic; the stepped progression is presentation only.
  */
 
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Check, Loader2 } from 'lucide-react';
-import { PageBody } from '../../components/layout/AppShell';
-import { Card, GroupChip } from '../../components/ui';
-import { SimulatedNotice } from '../../components/SimulatedBadge';
+import { Page } from '../../components/ui';
+import { PrototypeNote } from '../../components/PrototypeLabels';
 import { useApp } from '../../store/AppStore';
-import { MATCHING_STAGES, runMatching } from '../../engines/matching';
+import { MATCHING_STEPS, rankDonorsForRequest } from '../../engines/matching';
 import { donors } from '../../mock/donors';
 
-const STAGE_MS = 280;
+const STEP_INTERVAL_MS = 280;
+const COMPLETION_PAUSE_MS = 320;
 
 export default function Matching() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getRequest } = useApp();
-  const request = getRequest(id!);
-  const [stage, setStage] = useState(0);
+  const { findRequest } = useApp();
+  const request = findRequest(id!);
+  const [completedSteps, setCompletedSteps] = useState(0);
 
   useEffect(() => {
     if (!request) return;
-    if (stage >= MATCHING_STAGES.length) {
-      const t = setTimeout(() => navigate(`/seeker/request/${id}/matches`, { replace: true }), 320);
-      return () => clearTimeout(t);
+
+    if (completedSteps >= MATCHING_STEPS.length) {
+      const timer = setTimeout(
+        () => navigate(`/seeker/request/${id}/matches`, { replace: true }),
+        COMPLETION_PAUSE_MS,
+      );
+      return () => clearTimeout(timer);
     }
-    const t = setTimeout(() => setStage((s) => s + 1), STAGE_MS);
-    return () => clearTimeout(t);
-  }, [stage, request, id, navigate]);
+
+    const timer = setTimeout(() => setCompletedSteps((step) => step + 1), STEP_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [completedSteps, request, id, navigate]);
 
   if (!request) return <Navigate to="/seeker" replace />;
 
-  const outcome = runMatching(donors, {
-    bloodGroup: request.bloodGroup,
-    urgency: request.urgency,
-  });
+  const outcome = rankDonorsForRequest(donors, request);
 
   return (
-    <PageBody>
-      <div className="max-w-xl mx-auto pt-6 sm:pt-12">
-        <Card className="p-6 sm:p-8">
-          <div className="flex items-center gap-3">
-            <GroupChip group={request.bloodGroup} size="lg" />
-            <div>
-              <h1 className="text-base font-semibold text-slate-900">Matching donors</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {request.units} unit{request.units > 1 ? 's' : ''} · {request.urgency} · Sector {request.sector}
-              </p>
-            </div>
-          </div>
+    <Page>
+      <div className="max-w-[440px] mx-auto pt-10">
+        <h1 className="text-[15px] font-semibold text-slate-900">
+          Matching donors for {request.patientRef}
+        </h1>
+        <p className="mt-1 text-[12.5px] text-slate-500">
+          {request.units} {request.units === 1 ? 'unit' : 'units'} of {request.bloodGroup},
+          {' '}{request.urgency}, Sector {request.sector}
+        </p>
 
-          <ul className="mt-6 space-y-3">
-            {MATCHING_STAGES.map((label, i) => {
-              const done = i < stage;
-              const active = i === stage;
-              return (
-                <li key={label} className="flex items-center gap-3">
-                  <span
-                    className={`w-5 h-5 shrink-0 grid place-items-center rounded-full border transition-colors ${
-                      done ? 'bg-emerald-500 border-emerald-500'
-                      : active ? 'border-crimson-500 bg-crimson-50'
-                      : 'border-slate-200 bg-slate-50'
-                    }`}
-                  >
-                    {done ? (
-                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                    ) : active ? (
-                      <Loader2 className="w-3 h-3 text-crimson-600 animate-spin" />
-                    ) : null}
-                  </span>
-                  <span
-                    className={`text-sm transition-colors ${
-                      done ? 'text-slate-500' : active ? 'text-slate-900 font-medium' : 'text-slate-400'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+        <ol className="mt-6 space-y-2.5">
+          {MATCHING_STEPS.map((step, index) => {
+            const done = index < completedSteps;
+            const active = index === completedSteps;
+            return (
+              <li key={step} className="flex items-baseline gap-3 text-[13px]">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 translate-y-[-1px] ${
+                    done ? 'bg-emerald-500' : active ? 'bg-crimson-700' : 'bg-slate-300'
+                  }`}
+                />
+                <span className={done ? 'text-slate-500' : active ? 'text-slate-900' : 'text-slate-400'}>
+                  {step}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
 
-          <div className="mt-6 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-crimson-500 transition-[width] duration-300"
-              style={{ width: `${(stage / MATCHING_STAGES.length) * 100}%` }}
-            />
-          </div>
+        <p className="mt-6 text-[12px] text-slate-500 tabular-nums">
+          {outcome.poolSize} donors screened. {outcome.incompatibleCount} incompatible,
+          {' '}{outcome.withinIntervalCount} within the donation interval.
+        </p>
 
-          <p className="mt-3 text-xs text-slate-500 nums">
-            Screened {outcome.poolSize} registered donors ·{' '}
-            {outcome.incompatibleCount} incompatible ·{' '}
-            {outcome.ineligibleCount} within donation interval
-          </p>
-        </Card>
-
-        <SimulatedNotice ccp={1} className="mt-4" />
+        <div className="mt-6">
+          <PrototypeNote ccp={1} />
+        </div>
       </div>
-    </PageBody>
+    </Page>
   );
 }

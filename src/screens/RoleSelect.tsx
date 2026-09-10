@@ -1,123 +1,101 @@
 /**
- * Demo role selection.
+ * Workspace selection.
  *
- * There is no authentication in this prototype and none is required for the
- * proposal defense. Roles are selected directly; the same BloodGrid application
- * is entered in every case.
+ * There is no authentication in this prototype and none is needed for the
+ * proposal defense. All three workspaces are views of the same application and
+ * can be switched at any time from the header.
  */
 
 import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, ArrowRight, Building2, HeartHandshake, Users,
-} from 'lucide-react';
 import type { Role } from '../types';
 import { useApp } from '../store/AppStore';
-import { BloodGridMark, BloodGridWordmark } from '../components/layout/AppShell';
-import { Badge, Button } from '../components/ui';
+import { BloodGridLogo } from '../components/layout/AppShell';
+import { Button } from '../components/ui';
 import { OWN_BANK } from '../mock/banks';
 
-const ROLES: {
-  role: Role; title: string; persona: string; icon: React.ElementType;
-  blurb: string; ccp: string; primary?: boolean; tier2?: boolean;
+const WORKSPACE_OPTIONS: {
+  role: Role; title: string; who: string; purpose: string; note: string;
 }[] = [
   {
-    role: 'seeker', title: 'Blood Seeker', persona: 'Attendant · Islamabad G-8',
-    icon: Users, primary: true,
-    blurb: 'Raise a blood request for a patient and review ranked donor recommendations on a map.',
-    ccp: 'Demonstrates CCP 1 — Donor Matching Optimization',
+    role: 'seeker',
+    title: 'Blood seeker',
+    who: 'Attendant, Sector G-8',
+    purpose: 'Raise a blood request and review the donors BloodGrid suggests.',
+    note: 'Demonstrates CCP 1, donor matching optimisation',
   },
   {
-    role: 'bank', title: 'Blood Bank Administrator', persona: OWN_BANK.name,
-    icon: Building2, primary: true,
-    blurb: 'Review inventory, historical demand, the prototype forecast, and resulting planning actions.',
-    ccp: 'Demonstrates CCP 2 — Demand Predictive Analysis',
+    role: 'bank',
+    title: 'Blood bank administrator',
+    who: OWN_BANK.name,
+    purpose: 'Review stock, demand and forecast, and decide what action to take.',
+    note: 'Demonstrates CCP 2, blood demand predictive analysis',
   },
   {
-    role: 'donor', title: 'Donor', persona: 'Registered donor · Islamabad G-9',
-    icon: HeartHandshake, tier2: true,
-    blurb: 'Manage availability and respond to incoming requests, closing the coordination loop.',
-    ccp: 'Supporting workflow — no separate computational component',
+    role: 'donor',
+    title: 'Donor',
+    who: 'Registered donor, Sector G-9',
+    purpose: 'Manage availability and respond to requests sent through BloodGrid.',
+    note: 'Supporting workflow, not a separate computational component',
   },
 ];
 
+const WORKSPACE_HOME: Record<Role, string> = {
+  seeker: '/seeker', bank: '/bank', donor: '/donor',
+};
+
 export default function RoleSelect() {
-  const { setRole } = useApp();
+  const { selectRole } = useApp();
   const navigate = useNavigate();
 
-  const enter = (role: Role) => {
-    setRole(role);
-    navigate(role === 'seeker' ? '/seeker' : role === 'bank' ? '/bank' : '/donor');
-  };
+  function enterWorkspace(role: Role) {
+    selectRole(role);
+    navigate(WORKSPACE_HOME[role]);
+  }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <div className="bg-amber-100 border-b border-amber-200 px-4 py-2">
-        <p className="text-center text-[11px] sm:text-xs font-medium text-amber-900">
-          Proposal-stage prototype — simulated demonstration data and simulated computational output.
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <p className="bg-slate-100 border-b border-slate-200 px-5 py-1.5 text-center text-[11.5px] text-slate-600">
+        Proposal-stage prototype. All data and all computational output shown here are simulated.
+      </p>
 
-      <header className="px-4 sm:px-6 lg:px-8 py-4 border-b border-slate-200 bg-white">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <BloodGridMark />
-            <BloodGridWordmark />
-          </div>
-          <Button to="/" variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
+      <header className="border-b border-slate-200">
+        <div className="max-w-[760px] mx-auto px-5 sm:px-8 h-[52px] flex items-center justify-between">
+          <BloodGridLogo />
+          <Button size="sm" to="/">Back</Button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              Choose a demonstration role
-            </h1>
-            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-              All three roles are views of the same BloodGrid application. You can switch between
-              them at any time from the top bar — no sign-out required.
-            </p>
-            <p className="mt-3 text-xs text-slate-500">
-              No authentication is implemented in this prototype. Production authentication is
-              scheduled for the implementation phase.
-            </p>
-          </div>
+      <main className="flex-1">
+        <div className="max-w-[760px] mx-auto px-5 sm:px-8 py-14">
+          <h1 className="text-[20px] font-semibold tracking-[-0.011em] text-slate-900">
+            Choose a workspace
+          </h1>
+          <p className="mt-2 text-[13px] leading-[1.6] text-slate-600 max-w-[62ch]">
+            All three are views of the same BloodGrid application. You can switch between them at
+            any time from the header, without signing out. No authentication is implemented at the
+            proposal stage.
+          </p>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {ROLES.map((r) => {
-              const Icon = r.icon;
-              return (
+          <ul className="mt-8 border border-slate-200 rounded-md divide-y divide-slate-200">
+            {WORKSPACE_OPTIONS.map((option) => (
+              <li key={option.role}>
                 <button
-                  key={r.role}
-                  onClick={() => enter(r.role)}
-                  className="group text-left bg-white border border-slate-200 rounded-xl shadow-card p-5 hover:shadow-lift hover:border-crimson-300 transition-all focus-visible:border-crimson-400"
+                  type="button"
+                  onClick={() => enterWorkspace(option.role)}
+                  className="w-full text-left px-5 py-4 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="w-10 h-10 grid place-items-center rounded-lg bg-crimson-50 border border-crimson-100">
-                      <Icon className="w-5 h-5 text-crimson-600" />
-                    </span>
-                    {r.tier2
-                      ? <Badge tone="slate">Supporting</Badge>
-                      : <Badge tone="red" dot>Core demo</Badge>}
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <span className="text-[14px] font-medium text-slate-900">{option.title}</span>
+                    <span className="text-[12px] text-slate-500">{option.who}</span>
                   </div>
-
-                  <h2 className="mt-4 text-base font-semibold text-slate-900">{r.title}</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{r.persona}</p>
-                  <p className="mt-3 text-xs text-slate-600 leading-relaxed">{r.blurb}</p>
-
-                  <p className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-medium text-slate-500 leading-relaxed">
-                    {r.ccp}
+                  <p className="mt-1.5 text-[12.5px] leading-[1.6] text-slate-600 max-w-[64ch]">
+                    {option.purpose}
                   </p>
-
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-crimson-700 group-hover:gap-2.5 transition-all">
-                    Enter as {r.title} <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
+                  <p className="mt-1.5 text-[11.5px] text-slate-500">{option.note}</p>
                 </button>
-              );
-            })}
-          </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </main>
     </div>

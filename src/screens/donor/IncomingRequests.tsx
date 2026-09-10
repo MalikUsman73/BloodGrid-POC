@@ -1,129 +1,126 @@
 /**
- * Donor incoming requests (Tier 2) — accept/decline, closing the workflow loop.
- * No real notification is delivered; responses are recorded in session state.
+ * Requests waiting for the donor's response.
+ *
+ * Accepting is what opens the conversation for both sides, which is the point
+ * of the communication model: contact happens in BloodGrid, after acceptance.
  */
 
-import { useState } from 'react';
-import { Bell, Building2, Check, CheckCircle2, Clock, MapPin, X } from 'lucide-react';
-import { PageBody, PageHeader } from '../../components/layout/AppShell';
-import { Badge, Button, Card, CardHeader, EmptyState, GroupChip } from '../../components/ui';
-import { IllustrativeNote } from '../../components/SimulatedBadge';
-import { useApp } from '../../store/AppStore';
-import { DEMO_DONOR } from './shared';
+import { Link } from 'react-router-dom';
+import {
+  BloodGroup as BloodGroupTag, Button, EmptyState, Notice, Page, PageTitle, Status,
+} from '../../components/ui';
+import { Footnote } from '../../components/PrototypeLabels';
+import { DEMO_DONOR_ID, useApp } from '../../store/AppStore';
+import { findDonor } from '../../mock/donors';
+import { urgencyTone } from '../../lib/status';
 
 export default function IncomingRequests() {
-  const { requests, donorResponses, donorRespond } = useApp();
-  const [justResponded, setJustResponded] = useState<string | null>(null);
-
-  const mine = requests.filter((r) => r.contactedDonorIds.includes(DEMO_DONOR.id));
-
-  const respond = (id: string, response: 'accepted' | 'declined') => {
-    donorRespond(id, response);
-    setJustResponded(id);
-  };
+  const { donorInbox, findRequest, respondToRequest } = useApp();
+  const donor = findDonor(DEMO_DONOR_ID)!;
+  const inbox = donorInbox();
 
   return (
-    <>
-      <PageHeader
-        title="Incoming Requests"
-        subtitle={`Blood requests sent to ${DEMO_DONOR.name} from the BloodGrid seeker workspace.`}
+    <Page>
+      <PageTitle
+        title="Requests"
+        description={`Blood requests sent to ${donor.name} through BloodGrid.`}
       />
 
-      <PageBody className="space-y-5">
-        {justResponded && donorResponses[justResponded] && (
-          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 animate-fadeUp">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-900">
-                Response recorded — request {donorResponses[justResponded]}
-              </p>
-              <p className="mt-0.5 text-xs text-emerald-800 leading-relaxed">
-                The seeker sees this status inside the same BloodGrid application. No message,
-                SMS, or notification is transmitted by this prototype.
-              </p>
-            </div>
-          </div>
-        )}
+      {inbox.length === 0 ? (
+        <EmptyState
+          title="No requests yet"
+          message="Switch to the Seeker workspace, create a request and send it to this donor. It will appear here, showing both sides of the workflow inside one application."
+          action={<Button variant="primary" size="sm" to="/seeker/request/new">Go to the Seeker workspace</Button>}
+        />
+      ) : (
+        <ul className="space-y-4 max-w-[640px]">
+          {inbox.map((entry) => {
+            const request = findRequest(entry.requestId);
+            if (!request) return null;
+            const pending = entry.state === 'Sent';
 
-        {mine.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<Bell className="w-8 h-8" />}
-              title="No incoming requests"
-              message="Switch to the Blood Seeker role, create a request, and send it to Ahmed Khan — it will appear here, demonstrating both sides of the workflow inside one application."
-              action={<Button to="/seeker/request/new" size="sm">Go to Blood Seeker</Button>}
-            />
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {mine.map((r) => {
-              const response = donorResponses[r.id];
-              return (
-                <Card key={r.id} className={response ? '' : 'border-amber-200'}>
-                  <CardHeader
-                    title={`Request ${r.id}`}
-                    subtitle={`Raised ${r.createdLabel}`}
-                    action={
-                      response
-                        ? <Badge tone={response === 'accepted' ? 'green' : 'slate'}>
-                            {response === 'accepted' ? 'Accepted' : 'Declined'}
-                          </Badge>
-                        : <Badge tone="amber" dot>Awaiting response</Badge>
-                    }
-                  />
-                  <div className="p-5">
-                    <div className="flex flex-wrap items-center gap-4">
-                      <GroupChip group={r.bloodGroup} size="lg" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {r.units} unit{r.units > 1 ? 's' : ''} of {r.bloodGroup} required
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin className="w-3 h-3" /> Sector {r.sector}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3" /> {r.hospital}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {r.createdLabel}
-                          </span>
-                        </p>
-                      </div>
-                      <Badge tone={r.urgency === 'Critical' ? 'red' : r.urgency === 'Urgent' ? 'amber' : 'slate'}>
-                        {r.urgency}
-                      </Badge>
-                    </div>
+            return (
+              <li key={entry.requestId} className="border border-slate-200 rounded-md">
+                <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-medium text-slate-900">
+                    {request.patientRef}
+                    <span className="ml-2 font-normal text-slate-500 tabular-nums">{request.id}</span>
+                  </p>
+                  <Status tone={entry.state === 'Accepted' ? 'good' : pending ? 'attention' : 'neutral'}>
+                    {pending ? 'Awaiting your response' : entry.state}
+                  </Status>
+                </div>
 
-                    {r.note && (
-                      <p className="mt-4 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 leading-relaxed">
-                        “{r.note}”
+                <div className="p-4">
+                  <div className="flex items-center gap-4">
+                    <BloodGroupTag group={request.bloodGroup} size="lg" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] text-slate-900">
+                        {request.units} {request.units === 1 ? 'unit' : 'units'} needed at {request.facility}
                       </p>
-                    )}
-
-                    {!response && (
-                      <div className="mt-5 flex flex-col sm:flex-row gap-2.5">
-                        <Button full onClick={() => respond(r.id, 'accepted')}>
-                          <Check className="w-4 h-4" /> Accept request
-                        </Button>
-                        <Button full variant="secondary" onClick={() => respond(r.id, 'declined')}>
-                          <X className="w-4 h-4" /> Decline
-                        </Button>
-                      </div>
-                    )}
+                      <p className="mt-0.5 text-[12.5px] text-slate-500">
+                        Sector {request.sector}, sent {entry.sentLabel}
+                      </p>
+                    </div>
+                    <div className="ml-auto">
+                      <Status tone={urgencyTone(request.urgency)}>{request.urgency}</Status>
+                    </div>
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
 
-        <IllustrativeNote>
-          The donor experience is a supporting workflow. It is not a separate computational
-          component — BloodGrid's two computational components are donor matching optimisation and
-          blood demand predictive analysis.
-        </IllustrativeNote>
-      </PageBody>
-    </>
+                  {request.note && (
+                    <p className="mt-4 text-[12.5px] leading-[1.6] text-slate-600 border-l-2 border-slate-200 pl-3">
+                      {request.note}
+                    </p>
+                  )}
+
+                  {pending && (
+                    <div className="mt-5 flex gap-2.5">
+                      <Button
+                        variant="primary"
+                        onClick={() => respondToRequest(request.id, donor.id, true, donor.name)}
+                      >
+                        Accept request
+                      </Button>
+                      <Button onClick={() => respondToRequest(request.id, donor.id, false, donor.name)}>
+                        Decline
+                      </Button>
+                    </div>
+                  )}
+
+                  {entry.state === 'Accepted' && (
+                    <div className="mt-5">
+                      <Notice tone="good" title="You accepted this request">
+                        The seeker can now reach you in BloodGrid. Your personal contact details
+                        are not shared.
+                      </Notice>
+                      <Link
+                        to={`/donor/requests/${request.id}/conversation`}
+                        className="mt-3 inline-block text-[12.5px] font-medium text-crimson-800 hover:underline"
+                      >
+                        Open conversation
+                      </Link>
+                    </div>
+                  )}
+
+                  {entry.state === 'Declined' && (
+                    <p className="mt-5 text-[12.5px] text-slate-500">
+                      You declined this request. The seeker can contact other donors.
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="mt-8 max-w-[640px]">
+        <Footnote>
+          The donor workspace is a supporting part of the application. It is not a separate
+          computational component: BloodGrid's two are donor matching optimisation and blood
+          demand predictive analysis.
+        </Footnote>
+      </div>
+    </Page>
   );
 }
