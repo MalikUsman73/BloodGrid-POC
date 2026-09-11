@@ -11,9 +11,9 @@ import {
   Notice, Page, PageTitle, Section, inputStyles,
 } from '../../components/ui';
 import { useApp } from '../../store/AppStore';
-import { SECTORS, donors } from '../../mock/donors';
+import { SECTORS } from '../../mock/donors';
 import { REQUEST_FORM_DEFAULTS } from '../../mock/requests';
-import { COMPATIBLE_DONOR_GROUPS } from '../../engines/matching';
+import { COMPATIBLE_DONOR_GROUPS, donorsToNotify, isContactable } from '../../engines/matching';
 import { pluralDonors } from '../../lib/format';
 
 const BLOOD_GROUPS: BloodGroup[] = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
@@ -29,7 +29,7 @@ const MAX_UNITS = 10;
 
 export default function CreateRequest() {
   const navigate = useNavigate();
-  const { createBloodRequest } = useApp();
+  const { createBloodRequest, donors } = useApp();
 
   const [bloodGroup, setBloodGroup] = useState<BloodGroup>(REQUEST_FORM_DEFAULTS.bloodGroup);
   const [urgency, setUrgency] = useState<Urgency>(REQUEST_FORM_DEFAULTS.urgency);
@@ -40,8 +40,9 @@ export default function CreateRequest() {
   const [error, setError] = useState<string | null>(null);
 
   const acceptedGroups = COMPATIBLE_DONOR_GROUPS[bloodGroup];
-  const eligiblePool = donors.filter(
-    (donor) => acceptedGroups.includes(donor.bloodGroup) && donor.eligible,
+  const contactablePool = donors.filter(
+    (donor) =>
+      acceptedGroups.includes(donor.bloodGroup) && donor.eligible && isContactable(donor),
   ).length;
 
   function submitBloodRequest(event: React.FormEvent) {
@@ -164,8 +165,13 @@ export default function CreateRequest() {
               <Detail label="Location">Sector {sector}</Detail>
               <Detail label="Facility">{facility || 'Not set'}</Detail>
               <Detail label="Accepts">{acceptedGroups.join(', ')}</Detail>
-              <Detail label="Eligible donors">
-                <span className="tabular-nums font-medium">{pluralDonors(eligiblePool)}</span>
+              <Detail label="Will notify">
+                <span className="tabular-nums font-medium">
+                  {Math.min(donorsToNotify(units, urgency), contactablePool)} donors
+                </span>
+              </Detail>
+              <Detail label="Contactable donors">
+                <span className="tabular-nums font-medium">{pluralDonors(contactablePool)}</span>
               </Detail>
             </DetailList>
           </div>

@@ -3,16 +3,16 @@ import {
   BloodGroup, Button, EmptyState, Eyebrow, Page, PageTitle, Status, StatusDot,
   Surface, SurfaceHeader, Table, Td, Th,
 } from '../../components/ui';
+import type { Donor } from '../../types';
 import { useApp } from '../../store/AppStore';
 import { requestStatusTone, urgencyTone } from '../../lib/status';
 import { pluralDonors, pluralUnits } from '../../lib/format';
-import { donors } from '../../mock/donors';
-import { COMPATIBLE_DONOR_GROUPS } from '../../engines/matching';
+import { COMPATIBLE_DONOR_GROUPS, isContactable } from '../../engines/matching';
 
 /** Availability across the pool, for the donor panel. */
-function poolBreakdown() {
+function poolBreakdown(donors: Donor[]) {
   const eligible = donors.filter((donor) => donor.eligible);
-  const available = eligible.filter((donor) => donor.availability === 'Available');
+  const available = eligible.filter((donor) => donor.available);
 
   const byGroup = new Map<string, number>();
   for (const donor of available) {
@@ -28,8 +28,8 @@ function poolBreakdown() {
 }
 
 export default function SeekerOverview() {
-  const { requests, donorRequestsFor } = useApp();
-  const pool = poolBreakdown();
+  const { requests, donorRequestsFor, donors } = useApp();
+  const pool = poolBreakdown(donors);
 
   const openRequests = requests.filter((request) => request.status !== 'Fulfilled');
   const activeRequest = openRequests[0];
@@ -40,7 +40,7 @@ export default function SeekerOverview() {
     ? donors.filter(
         (donor) =>
           COMPATIBLE_DONOR_GROUPS[activeRequest.bloodGroup].includes(donor.bloodGroup) &&
-          donor.eligible,
+          donor.eligible && isContactable(donor),
       ).length
     : 0;
 

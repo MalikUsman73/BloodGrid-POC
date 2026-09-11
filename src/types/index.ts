@@ -14,8 +14,6 @@ export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-'
 
 export type Urgency = 'Routine' | 'Urgent' | 'Critical';
 
-export type Availability = 'Available' | 'Limited' | 'Unavailable';
-
 export type Role = 'seeker' | 'donor' | 'bank';
 
 export interface Donor {
@@ -27,7 +25,12 @@ export interface Donor {
   /** Map-space coordinates, 0 to 100. Deliberately not latitude and longitude. */
   coords: { x: number; y: number };
   distanceKm: number;
-  availability: Availability;
+  /**
+   * Whether the donor has declared themselves available to donate.
+   * A binary feasibility flag: available donors are in the pool, the rest are
+   * not considered at all. It is never traded off against other criteria.
+   */
+  available: boolean;
   lastDonationDays: number;
   /** Derived from lastDonationDays against the minimum donation interval. */
   eligible: boolean;
@@ -44,6 +47,16 @@ export type RequestStatus =
   | 'Donor Accepted'
   | 'Fulfilled';
 
+/**
+ * Changes applied to a donor once they have accepted and been confirmed.
+ * Held separately from the base record so the demonstration data stays intact
+ * and a session reset restores it.
+ */
+export interface DonorAdjustment {
+  lastDonationDays: number;
+  completedDonations: number;
+}
+
 export interface BloodRequest {
   id: string;
   bloodGroup: BloodGroup;
@@ -58,8 +71,13 @@ export interface BloodRequest {
   status: RequestStatus;
 }
 
-/** How a single donor responded to a single request. */
-export type DonorRequestState = 'Sent' | 'Accepted' | 'Declined';
+/**
+ * How a single donor responded to a single request.
+ *
+ * 'Stood Down' means the donor accepted, but the request had already been
+ * covered by others. Their eligibility is not consumed.
+ */
+export type DonorRequestState = 'Sent' | 'Accepted' | 'Declined' | 'Stood Down';
 
 export interface ConversationMessage {
   id: string;
@@ -78,20 +96,34 @@ export interface DonorRequest {
   state: DonorRequestState;
   sentLabel: string;
   messages: ConversationMessage[];
+  /**
+   * The ranking that caused this donor to be notified, captured at that
+   * moment. It is not recomputed later: a donor's record changes once they
+   * accept, and recomputing would both alter the displayed reasoning and drop
+   * the accepted donor from the list entirely.
+   */
+  rank: number;
+  score: number;
+  tier: MatchTier;
+  objectives: ObjectiveVector;
 }
 
-/** The criteria the future NSGA-II implementation will optimise over. */
+/**
+ * The criteria the future multi-objective optimiser will work over.
+ *
+ * Availability is deliberately absent: it is a hard feasibility constraint,
+ * not something to be traded off, so it never reaches the objective vector.
+ */
 export interface ObjectiveVector {
   compatibility: number;
   proximity: number;
-  availability: number;
   recency: number;
   reliability: number;
 }
 
 export type MatchTier = 'Excellent' | 'Good' | 'Moderate';
 
-/** Output of the simulated matching engine. `score` is not an NSGA-II result. */
+/** Output of the simulated matching engine. `score` is not an optimiser result. */
 export interface MatchResult {
   donor: Donor;
   objectives: ObjectiveVector;

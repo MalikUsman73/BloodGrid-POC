@@ -5,8 +5,8 @@ complete user-facing workflow of one integrated application serving two user gro
 establishes that the overall application flow is feasible.
 
 > **Prototype status.** All data in this build is simulated demonstration data, and both
-> computational outputs are simulated. NSGA-II optimisation and the demand forecasting model are
-> committed implementation components, not part of this prototype. No real donor, patient, or
+> computational outputs are simulated. Multi-objective optimisation and the demand forecasting
+> model are committed implementation components, not part of this prototype. No real donor, patient, or
 > blood-bank data is used anywhere.
 
 ---
@@ -63,17 +63,17 @@ groups.
 **Blood seeker (CCP 1)**
 
 1. Blood requests overview, then **Create blood request** (group, units, urgency, sector)
-2. Matching step, with the screening rules shown as they run
-3. **Suitable donors**: ranked list with per-criterion bars, beside the offline map
-4. Donor detail: distance, availability, recency, eligibility, and the criteria breakdown
-5. **Send request**, then a confirmation showing what happens next
-6. My requests, with live status per request
+2. Selection step, with the screening rules shown as they run
+3. **Request status**: the donors BloodGrid selected and notified, shown anonymously with their
+   criteria bars and map positions. The seeker does not choose; the system does.
+4. When a donor accepts, that donor is revealed by name and a conversation opens
+5. My requests, with live status per request
 
 **Donor**
 
 1. Overview: donor record and an availability switch
-2. Requests: accept or decline a request sent through BloodGrid
-3. Accepting opens the conversation for both sides
+2. Requests: accept or decline a request BloodGrid selected you for
+3. Accepting opens the conversation for both sides and updates your donation record
 
 **Blood bank (CCP 2)**
 
@@ -85,24 +85,39 @@ groups.
 
 ---
 
-## 4. Communication model
+## 4. Selection and communication model
 
-BloodGrid never shows a donor's personal contact details to a seeker. The prototype holds no
-phone numbers and no addresses, so it cannot leak either.
+The system selects and notifies. The seeker never browses or picks donors, and never sees who a
+donor is until that donor has agreed to help.
 
 ```
-Seeker submits a request
-  -> BloodGrid ranks suitable donors
-  -> Seeker sends a request to a donor through BloodGrid
-  -> Donor receives it in their workspace
-  -> Donor accepts
-  -> A conversation opens inside BloodGrid, for both sides
+Seeker submits a request for N units
+  -> matching engine ranks contactable donors
+  -> system selects the top K and notifies all of them
+  -> seeker sees them anonymised: group, sector, distance, criteria. No names.
+  -> a donor accepts
+  -> that donor is revealed by name, a conversation opens, the seeker is told
+  -> the donor's record is updated, so they leave the pool for 90 days
 ```
 
+**How many donors are notified.** K = ceil(factor x N), where the factor rises with urgency,
+because more donors decline than accept and a critical request cannot wait for a second round:
+
+| Urgency | Factor | 1 unit | 2 units | 3 units |
+|---|---|---|---|---|
+| Routine | 1.3 | 2 | 3 | 4 |
+| Urgent | 1.6 | 2 | 4 | 5 |
+| Critical | 2.0 | 2 | 4 | 6 |
+
+**If more donors accept than are needed**, the first N are confirmed and the rest are stood
+down with a note of thanks. A stood-down donor's eligibility is not consumed, so they remain
+available for future requests.
+
+**Privacy.** Donor identity is withheld until acceptance, and personal contact details are never
+shown at all: the prototype holds no phone numbers and no addresses, so it cannot leak either.
 The conversation route is guarded on the request state, so it cannot be reached before a donor
 accepts, even by typing the URL. Messages live in the browser session and are not delivered
-anywhere: there is no messaging backend at the proposal stage, and the conversation screen says
-so. Real in-application messaging is implementation-phase work.
+anywhere; there is no messaging backend at the proposal stage, and the screen says so.
 
 ---
 
@@ -114,7 +129,7 @@ demonstration is exactly repeatable.
 
 | File | Contents |
 |---|---|
-| `src/mock/donors.ts` | 14 fictional donors. Sector-level locations only. `distanceKm` is derived from map coordinates, so the list and the map can never disagree. |
+| `src/mock/donors.ts` | 14 fictional donors. Sector-level locations only. `distanceKm` is derived from map coordinates, so the list and the map can never disagree. Availability is a binary flag. |
 | `src/mock/banks.ts` | One own facility and three fictional partners; inventory for eight groups with use and collection rates. |
 | `src/mock/demand.ts` | Baselines, trends, weekly patterns, and the illustrative scenario factors. |
 | `src/mock/requests.ts` | Two seeded requests, so the seeker screens are never empty on a first visit. |
@@ -164,25 +179,33 @@ Every screen that renders a computational output uses `PrototypeNote` or `Simula
 
 ## 7. What is simulated and what is not
 
-See [docs/SIMULATED_VS_IMPLEMENTED.md](docs/SIMULATED_VS_IMPLEMENTED.md) for the full account.
+See [docs/SIMULATED_VS_IMPLEMENTED.md](docs/SIMULATED_VS_IMPLEMENTED.md) for the full account,
+and two method reviews written for the implementation phase, neither of which changes the
+prototype: [docs/CCP1_ALGORITHM_REVIEW.md](docs/CCP1_ALGORITHM_REVIEW.md) on whether NSGA-II is
+the right method for CCP1, and
+[docs/CCP2_FORECASTING_REVIEW.md](docs/CCP2_FORECASTING_REVIEW.md) on training a demand
+forecasting model once real blood-bank data is obtained.
+
 In short:
 
 **Genuinely implemented**
 
 - ABO and Rh compatibility screening, using a standard clinical lookup table
 - The 90-day donation-interval eligibility rule
+- Availability as a binary feasibility constraint, applied before any scoring
 - Deterministic multi-criteria ranking with urgency-dependent weights
 - The complete interface, navigation, workspace switching, and every workflow above
-- The request, acceptance, and conversation state machine
+- The request, notification, acceptance, stand-down and conversation state machine
+- Donor records updating on a confirmed acceptance, removing them from the pool
 - The offline map: pan, zoom, marker selection, distance rings
 
 **Simulated for the proposal stage**
 
-- The Prototype Match Score, a weighted ranking, not NSGA-II
+- The Prototype Match Score, a weighted ranking, not an optimiser result
 - The prototype forecast, a composed deterministic signal, not a trained model
 - All donor, patient, inventory, blood-bank, and demand data
 
-**Deliberately not built**, per `docs/DEFENSE_SCOPE.md`: NSGA-II, any trained forecasting model,
+**Deliberately not built**, per `docs/DEFENSE_SCOPE.md`: any optimiser, any trained forecasting model,
 production authentication, a backend, a database, real notifications, real messaging delivery,
 real blood-bank integration, and deployment.
 
@@ -195,7 +218,8 @@ real blood-bank integration, and deployment.
 2. **The map is a schematic.** A stylised sector grid in a fictional coordinate space, chosen so
    the demo never depends on tile servers or API keys. Real map integration is future work.
 3. **The match score is not an optimiser.** It is a weighted sum producing one ranking, where the
-   multi-objective formulation NSGA-II addresses produces a set of trade-off solutions.
+   multi-objective formulation produces a set of trade-off solutions. See
+   `docs/CCP1_ALGORITHM_REVIEW.md` for why the method choice is still open.
 4. **The forecast is not fitted.** It carries no accuracy, error, or confidence measure, and none
    is displayed. The band on the chart is illustrative, not a prediction interval.
 5. **Scenario factors are illustrative.** Seasonal illness and holiday travel shape the
@@ -223,7 +247,7 @@ asserting **46 checks, all passing, with zero console errors**:
 - **Communication model:** no phone or call text on the donor screen; the conversation route is
   blocked before acceptance; it opens after acceptance; messages sync across both sides
 - **Duplication:** the planning screen carries no chart and no repeated figure row
-- **Claim checks:** no "NSGA-II result", no "Pareto", no accuracy, MAPE, RMSE, or confidence text
+- **Claim checks:** no "Pareto", no "non-dominated", no accuracy, MAPE, RMSE, or confidence text
 - **Offline:** all routes render with every non-localhost request blocked, zero attempted
 
 `npm run build` and `npm run typecheck` both pass clean, including with `--noUnusedLocals` and
@@ -236,9 +260,10 @@ asserting **46 checks, all passing, with zero console errors**:
 1. **Data acquisition.** A real demand dataset and a donor-registry schema. This gates both
    computational components.
 2. **Data model and backend.** A persistent schema, an API layer, and real authentication.
-3. **NSGA-II implementation.** Formalise the five objectives already surfaced in the interface,
-   implement genuine multi-objective optimisation, and evaluate it against the weighted-sum
-   baseline this prototype provides.
+3. **Multi-objective optimisation.** Formalise the five objectives already surfaced in the
+   interface, then select and implement a method (exact solving or NSGA-III) and evaluate it
+   against the weighted-sum baseline this prototype provides. See
+   `docs/CCP1_ALGORITHM_REVIEW.md`.
 4. **Forecasting model.** Select and train an approach on real data, then evaluate honestly on a
    held-out set and report real error metrics, which this prototype deliberately does not claim.
 5. **Messaging.** Real in-application messaging and notification delivery.
@@ -247,5 +272,5 @@ asserting **46 checks, all passing, with zero console errors**:
 8. **User testing** with blood seekers, donors, and a blood-bank administrator.
 9. **Deployment.**
 
-The weighted-sum ranking is worth keeping: it becomes the baseline the NSGA-II implementation
-must be shown to beat.
+The weighted-sum ranking is worth keeping: it becomes the baseline the chosen optimiser must be
+shown to beat.

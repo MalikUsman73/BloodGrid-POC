@@ -16,7 +16,7 @@ two computational components, one integrated workflow. Use those if the deck is 
 | 4 | `04-create-request.png` | Request form and live summary | CCP 1 input: group, units, urgency, sector. |
 | 5 | `05-matching-step.png` | Screening steps running | Matching is an explicit step with visible rules. |
 | 6 | `06-suitable-donors.png` | Ranked list, criteria bars, map | **Key.** The CCP 1 centrepiece. Fourteen screened, ten ranked. |
-| 7 | `07-donor-detail.png` | Criteria breakdown and the send panel | **Key.** The five future NSGA-II objectives, and no phone number anywhere. |
+| 7 | `07-donor-detail.png` | Criteria breakdown and the send panel | **Key.** The five future optimiser objectives, and no phone number anywhere. |
 | 8 | `08-request-sent.png` | Confirmation and what happens next | Contact is stated as available only after acceptance. |
 | 9 | `09-donor-requests.png` | The request in the donor workspace | The loop reaches the other side, inside one application. |
 | 10 | `10-donor-accepted.png` | Acceptance confirmed | Acceptance is what opens contact. |

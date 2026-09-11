@@ -1,9 +1,11 @@
 /**
  * The matching step.
  *
- * This screen exists so the matching stage is visible in the workflow rather
+ * This screen exists so the selection stage is visible in the workflow rather
  * than happening invisibly between two pages. The engine itself is synchronous
  * and deterministic; the stepped progression is presentation only.
+ *
+ * BloodGrid selects the donors and notifies them. The seeker does not pick.
  */
 
 import { useEffect, useState } from 'react';
@@ -12,7 +14,6 @@ import { Page } from '../../components/ui';
 import { PrototypeNote } from '../../components/PrototypeLabels';
 import { useApp } from '../../store/AppStore';
 import { MATCHING_STEPS, rankDonorsForRequest } from '../../engines/matching';
-import { donors } from '../../mock/donors';
 
 const STEP_INTERVAL_MS = 280;
 const COMPLETION_PAUSE_MS = 320;
@@ -20,7 +21,7 @@ const COMPLETION_PAUSE_MS = 320;
 export default function Matching() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { findRequest } = useApp();
+  const { findRequest, donors } = useApp();
   const request = findRequest(id!);
   const [completedSteps, setCompletedSteps] = useState(0);
 
@@ -47,7 +48,7 @@ export default function Matching() {
     <Page>
       <div className="max-w-[440px] mx-auto pt-10">
         <h1 className="text-[15px] font-semibold text-slate-900">
-          Matching donors for {request.patientRef}
+          Selecting donors for {request.patientRef}
         </h1>
         <p className="mt-1 text-[12.5px] text-slate-500">
           {request.units} {request.units === 1 ? 'unit' : 'units'} of {request.bloodGroup},

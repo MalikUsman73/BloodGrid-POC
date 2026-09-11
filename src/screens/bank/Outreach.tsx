@@ -14,15 +14,14 @@ import {
 } from '../../components/ui';
 import { Footnote } from '../../components/PrototypeLabels';
 import { useApp } from '../../store/AppStore';
-import { donors } from '../../mock/donors';
 import { COMPATIBLE_DONOR_GROUPS } from '../../engines/matching';
 import { FORECAST_GROUPS } from '../../mock/demand';
-import { availabilityTone } from '../../lib/status';
+import { availabilityLabel, availabilityTone } from '../../lib/status';
 import { pluralDonors } from '../../lib/format';
 
 export default function Outreach() {
   const [searchParams] = useSearchParams();
-  const { outreach, startOutreach } = useApp();
+  const { outreach, startOutreach, donors } = useApp();
 
   const requested = searchParams.get('group') as BloodGroup | null;
   const [group, setGroup] = useState<BloodGroup>(
@@ -37,10 +36,10 @@ export default function Outreach() {
       donors.filter((donor) => {
         if (!COMPATIBLE_DONOR_GROUPS[group].includes(donor.bloodGroup)) return false;
         if (!donor.eligible) return false;
-        if (availableOnly && donor.availability !== 'Available') return false;
+        if (availableOnly && !donor.available) return false;
         return true;
       }),
-    [group, availableOnly],
+    [group, availableOnly, donors],
   );
 
   const sectors = Array.from(new Set(audience.map((donor) => donor.sector))).sort();
@@ -129,7 +128,7 @@ export default function Outreach() {
                         Sector {donor.sector}, last donated {donor.lastDonationDays} days ago
                       </p>
                     </div>
-                    <Status tone={availabilityTone(donor.availability)}>{donor.availability}</Status>
+                    <Status tone={availabilityTone(donor.available)}>{availabilityLabel(donor.available)}</Status>
                   </li>
                 ))}
               </ul>

@@ -1,20 +1,24 @@
 /**
  * CCP 1: donor matching, prototype implementation.
  *
- * This is not NSGA-II. Nothing here performs multi-objective optimisation,
+ * This is not an optimiser. Nothing here performs multi-objective optimisation,
  * non-dominated sorting, crowding-distance calculation, or evolutionary search,
  * and no Pareto front is produced.
  *
  * What it does:
- *   1. Applies ABO/Rh compatibility and the donation-interval rule to get a
- *      feasible candidate set.
- *   2. Normalises five criteria to the range 0 to 1.
+ *   1. Applies hard feasibility rules to get a candidate set: ABO/Rh
+ *      compatibility, the donation-interval rule, and declared availability.
+ *   2. Normalises four criteria to the range 0 to 1.
  *   3. Combines them with urgency-dependent weights into a single
- *      Prototype Match Score.
+ *      Prototype Match Score, and the system notifies the top K.
  *
- * The five criteria are exposed on every result because they are the objectives
- * the future NSGA-II implementation will optimise over. Showing them explains
- * the shape of the problem without claiming the optimiser exists.
+ * Availability is a hard constraint, not a criterion. A donor who has not
+ * declared themselves available is not contacted at all, so there is no need
+ * to trade their availability off against anything else.
+ *
+ * The four criteria are exposed on every result because they are the
+ * objectives the future multi-objective optimiser will work over. Showing them
+ * explains the shape of the problem without claiming the optimiser exists.
  */
 
 import type {
@@ -43,6 +47,14 @@ export function isCompatible(recipient: BloodGroup, donor: BloodGroup): boolean 
 }
 
 /**
+ * Availability as a binary feasibility test. An available donor is in the pool;
+ * anyone else is not considered. There is nothing to trade off.
+ */
+export function isContactable(donor: Donor): boolean {
+  return donor.available;
+}
+
+/**
  * Criterion weights by urgency.
  *
  * These differ by urgency because no single ordering suits every request, which
@@ -50,15 +62,14 @@ export function isCompatible(recipient: BloodGroup, donor: BloodGroup): boolean 
  * are hand-chosen demonstration weights, not learned or tuned.
  */
 export const CRITERION_WEIGHTS: Record<Urgency, ObjectiveVector> = {
-  Critical: { compatibility: 0.30, proximity: 0.32, availability: 0.24, recency: 0.06, reliability: 0.08 },
-  Urgent:   { compatibility: 0.30, proximity: 0.24, availability: 0.22, recency: 0.12, reliability: 0.12 },
-  Routine:  { compatibility: 0.28, proximity: 0.14, availability: 0.18, recency: 0.22, reliability: 0.18 },
+  Critical: { compatibility: 0.32, proximity: 0.42, recency: 0.10, reliability: 0.16 },
+  Urgent:   { compatibility: 0.34, proximity: 0.32, recency: 0.16, reliability: 0.18 },
+  Routine:  { compatibility: 0.32, proximity: 0.20, recency: 0.28, reliability: 0.20 },
 };
 
 export const CRITERIA: { key: keyof ObjectiveVector; label: string; description: string }[] = [
   { key: 'compatibility', label: 'Compatibility', description: 'An exact group match scores highest; a compatible alternate scores slightly lower.' },
   { key: 'proximity',     label: 'Proximity',     description: 'Based on approximate sector-level distance to the request location.' },
-  { key: 'availability',  label: 'Availability',  description: 'The availability the donor has declared.' },
   { key: 'recency',       label: 'Donation recency', description: 'A longer gap since the last donation is preferred for donor wellbeing.' },
   { key: 'reliability',   label: 'Reliability',   description: 'Simulated response history, completed donations, and verification state.' },
 ];
@@ -67,8 +78,6 @@ export const CRITERIA: { key: keyof ObjectiveVector; label: string; description:
 const PROXIMITY_HORIZON_KM = 16;
 /** Gap beyond the minimum interval at which recency reaches its maximum, in days. */
 const RECENCY_HORIZON_DAYS = 180;
-
-const AVAILABILITY_SCORE = { Available: 1, Limited: 0.55, Unavailable: 0 };
 
 const TIER_THRESHOLDS: { min: number; tier: MatchTier }[] = [
   { min: 84, tier: 'Excellent' },
@@ -80,7 +89,6 @@ function scoreObjectives(donor: Donor, recipient: BloodGroup): ObjectiveVector {
   return {
     compatibility: donor.bloodGroup === recipient ? 1 : 0.85,
     proximity: clamp01(1 - donor.distanceKm / PROXIMITY_HORIZON_KM),
-    availability: AVAILABILITY_SCORE[donor.availability],
     recency: clamp01((donor.lastDonationDays - MIN_DAYS_BETWEEN_DONATIONS) / RECENCY_HORIZON_DAYS),
     reliability: clamp01(
       0.6 * donor.responseRate +
@@ -100,6 +108,7 @@ export interface MatchingOutcome {
   poolSize: number;
   incompatibleCount: number;
   withinIntervalCount: number;
+  unavailableCount: number;
 }
 
 /**
@@ -113,10 +122,12 @@ export function rankDonorsForRequest(
   const weights = CRITERION_WEIGHTS[request.urgency];
   let incompatibleCount = 0;
   let withinIntervalCount = 0;
+  let unavailableCount = 0;
 
   const feasible = donors.filter((donor) => {
     if (!isCompatible(request.bloodGroup, donor.bloodGroup)) { incompatibleCount += 1; return false; }
     if (!donor.eligible) { withinIntervalCount += 1; return false; }
+    if (!isContactable(donor)) { unavailableCount += 1; return false; }
     return true;
   });
 
@@ -142,14 +153,32 @@ export function rankDonorsForRequest(
     poolSize: donors.length,
     incompatibleCount,
     withinIntervalCount,
+    unavailableCount,
   };
 }
 
-/** Steps shown while the matching screen is on display. */
+/**
+ * How many donors to notify, as a multiple of the units needed.
+ *
+ * More donors are contacted than units required, because some will decline.
+ * The multiple rises with urgency: a critical request cannot afford to wait
+ * for a second round of outreach, while a routine one can.
+ */
+export const OVER_CONTACT_FACTOR: Record<Urgency, number> = {
+  Routine: 1.3,
+  Urgent: 1.6,
+  Critical: 2.0,
+};
+
+export function donorsToNotify(units: number, urgency: Urgency): number {
+  return Math.ceil(units * OVER_CONTACT_FACTOR[urgency]);
+}
+
+/** Steps shown while the selection screen is on display. */
 export const MATCHING_STEPS = [
   'Reading request parameters',
   'Screening the donor pool for compatibility',
-  'Applying donation-interval eligibility',
-  'Scoring proximity, availability, recency and reliability',
-  'Producing the prototype ranking',
+  'Applying donation-interval and availability rules',
+  'Scoring proximity, recency and reliability',
+  'Selecting donors and sending notifications',
 ];

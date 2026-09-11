@@ -75,3 +75,9 @@ scratch/
 
 # ---- Local project instructions (kept on disk, not shared) ----
 CLAUDE.md
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/

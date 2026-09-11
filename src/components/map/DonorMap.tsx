@@ -36,10 +36,16 @@ interface Props {
   onSelect?: (donorId: string) => void;
   onHover?: (donorId: string | null) => void;
   className?: string;
+  /**
+   * Display name per donor id. Used to keep identities hidden until a donor
+   * accepts, so the map can show position without revealing who is there.
+   */
+  anonymousNames?: Record<string, string>;
 }
 
 export default function DonorMap({
   results, selectedDonorId, hoveredDonorId, onSelect, onHover, className = '',
+  anonymousNames,
 }: Props) {
   const [view, setView] = useState(DEFAULT_VIEW);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -193,7 +199,7 @@ export default function DonorMap({
                   <g className="pointer-events-none">
                     <rect x={x - 10.5} y={y - 8.6} width={21} height={5.4} rx={0.6} fill="#0f172a" opacity={0.92} />
                     <text x={x} y={y - 6.4} fontSize={1.75 * textScale} fill="#ffffff" textAnchor="middle" fontWeight={600}>
-                      {donor.name}
+                      {anonymousNames?.[donor.id] ?? donor.name}
                     </text>
                     <text x={x} y={y - 4.3} fontSize={1.5 * textScale} fill="#cbd5e1" textAnchor="middle">
                       {donor.bloodGroup}, Sector {donor.sector}, {donor.distanceKm} km

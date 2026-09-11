@@ -13,12 +13,13 @@
 import { Link } from 'react-router-dom';
 import { Button, EmptyState, Page, PageTitle, Section, Status } from '../../components/ui';
 import { Footnote, SimulatedMark } from '../../components/PrototypeLabels';
+import { useApp } from '../../store/AppStore';
 import { buildPlanningItems } from '../../engines/forecast';
-import { COMPATIBLE_DONOR_GROUPS } from '../../engines/matching';
-import { donors } from '../../mock/donors';
+import { COMPATIBLE_DONOR_GROUPS, isContactable } from '../../engines/matching';
 import { pluralDonors } from '../../lib/format';
 
 export default function Planning() {
+  const { donors } = useApp();
   const items = buildPlanningItems();
 
   return (
@@ -39,7 +40,8 @@ export default function Planning() {
           {items.map((item) => {
             const eligibleDonors = donors.filter(
               (donor) =>
-                COMPATIBLE_DONOR_GROUPS[item.bloodGroup].includes(donor.bloodGroup) && donor.eligible,
+                COMPATIBLE_DONOR_GROUPS[item.bloodGroup].includes(donor.bloodGroup)
+                && donor.eligible && isContactable(donor),
             ).length;
 
             return (
@@ -72,7 +74,7 @@ export default function Planning() {
                     <div className="flex gap-3">
                       <dt className="w-[128px] shrink-0 text-[12.5px] text-slate-500">Donors reachable</dt>
                       <dd className="text-[12.5px] text-slate-700">
-                        {pluralDonors(eligibleDonors)} compatible and eligible in the simulated pool
+                        {pluralDonors(eligibleDonors)} compatible, eligible and available in the simulated pool
                       </dd>
                     </div>
                   </dl>

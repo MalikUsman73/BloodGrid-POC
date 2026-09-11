@@ -15,7 +15,7 @@ import { Bar } from './ui';
  */
 export function CriteriaBars({ objectives }: { objectives: ObjectiveVector }) {
   return (
-    <div className="grid grid-cols-5 gap-x-3">
+    <div className="grid grid-cols-4 gap-x-3">
       {CRITERIA.map((criterion) => (
         <Bar
           key={criterion.key}
@@ -30,7 +30,7 @@ export function CriteriaBars({ objectives }: { objectives: ObjectiveVector }) {
 /** Printed once, directly above a list of ranked donors. */
 export function CriteriaLegend() {
   return (
-    <div className="grid grid-cols-5 gap-x-3">
+    <div className="grid grid-cols-4 gap-x-3">
       {CRITERIA.map((criterion) => (
         <p
           key={criterion.key}

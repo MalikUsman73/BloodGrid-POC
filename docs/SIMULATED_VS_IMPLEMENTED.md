@@ -34,18 +34,19 @@ Score.
 **What it does not do.** Any multi-objective optimisation. There is no non-dominated sorting, no
 crowding distance, no evolutionary search, no population, no generations, and no Pareto front.
 
-**Why the five criteria are shown anyway.** They are the objectives the future NSGA-II
-implementation will optimise over. Surfacing them explains the structure of the problem, and
+**Why the five criteria are shown anyway.** They are the objectives the future multi-objective
+optimiser will work over. Surfacing them explains the structure of the problem, and
 makes visible why a single weighted ordering is inadequate, without claiming the optimiser
 exists.
 
 **Required wording, used on every screen showing the score:**
 
 - Prototype Match Score, simulated matching output
-- Future implementation: NSGA-II multi-objective optimisation
+- Future implementation: multi-objective optimisation, with the method selected between exact
+  solving and NSGA-III (see `CCP1_ALGORITHM_REVIEW.md`)
 
-**Never claimed:** that NSGA-II is implemented, that it has been evaluated, or that any result is
-Pareto-optimal or non-dominated.
+**Never claimed:** that any optimiser is implemented, that one has been evaluated, or that any
+result is Pareto-optimal or non-dominated.
 
 ### CCP 2, blood demand predictive analysis
 
@@ -87,7 +88,7 @@ validation has taken place.
 
 ## 3. Deliberately not built
 
-Out of scope per `docs/DEFENSE_SCOPE.md`: NSGA-II, a trained forecasting model, production
+Out of scope per `docs/DEFENSE_SCOPE.md`: any optimiser, a trained forecasting model, production
 authentication, a production backend, a database, real notifications by SMS, email, or push,
 real messaging delivery, real medical verification, real blood-bank integration, deployment,
 cloud infrastructure, payments, real map integration, and complex optimisation of any kind.
@@ -111,16 +112,16 @@ nowhere. There is no messaging backend, and the screen says so.
 
 - "The POC uses simulated data and prototype computational outputs to validate the end-to-end
   workflow."
-- "The full NSGA-II optimisation and the forecasting model are committed implementation
+- "The multi-objective optimisation and the forecasting model are committed implementation
   components."
-- "The prototype ranking is a weighted baseline that the NSGA-II implementation will be evaluated
+- "The prototype ranking is a weighted baseline that the chosen optimiser will be evaluated
   against."
 - "Expected high demand in the next forecast period."
 - "Contact happens inside BloodGrid once the donor accepts."
 
 **Incorrect, do not say**
 
-- "NSGA-II is already implemented." or "These are Pareto-optimal donors."
+- "The optimiser is already implemented." or "These are Pareto-optimal donors."
 - "Our forecasting model achieves n percent accuracy", or any accuracy, MAPE, RMSE, or confidence
   figure.
 - "These are real donor records." or "Our blood bank is already integrated."
@@ -142,5 +143,5 @@ nowhere. There is no messaging backend, and the screen says so.
   mistake.
 - The conversation route checks the request state before rendering, so contact cannot be reached
   before a donor accepts.
-- The automated verification asserts the absence of "NSGA-II result", "Pareto", "non-dominated",
+- The automated verification asserts the absence of "Pareto", "non-dominated",
   any accuracy or error-metric text, and any phone or call text on the donor screen.

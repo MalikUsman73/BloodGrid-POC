@@ -5,9 +5,7 @@
  * because of what the value means, never for decoration.
  */
 
-import type {
-  Availability, MatchTier, RequestStatus, StockStatus, Urgency,
-} from '../types';
+import type { MatchTier, RequestStatus, StockStatus, Urgency } from '../types';
 
 /** Semantic tones. `neutral` is the default and covers most of the interface. */
 export type Tone = 'neutral' | 'info' | 'good' | 'attention' | 'urgent';
@@ -29,8 +27,12 @@ export function tierTone(tier: MatchTier): Tone {
   return tier === 'Excellent' ? 'good' : tier === 'Good' ? 'info' : 'neutral';
 }
 
-export function availabilityTone(availability: Availability): Tone {
-  return availability === 'Available' ? 'good' : availability === 'Limited' ? 'attention' : 'neutral';
+export function availabilityTone(available: boolean): Tone {
+  return available ? 'good' : 'neutral';
+}
+
+export function availabilityLabel(available: boolean): string {
+  return available ? 'Available' : 'Not available';
 }
 
 export function stockTone(status: StockStatus): Tone {

@@ -2,20 +2,33 @@
  * Application state.
  *
  * There is no backend and no database. State lives in memory for the session
- * and is mirrored into sessionStorage, so refreshing the page during a
- * demonstration does not discard a request that was just created.
+ * and is mirrored into sessionStorage, so refreshing during a demonstration
+ * does not discard a request that was just created.
  *
- * The communication model is enforced here: a seeker sends a request to a
- * donor, and a conversation only exists once that donor accepts. Nothing in
- * this store holds a phone number or an address.
+ * The flow this store implements:
+ *
+ *   1. A seeker creates a request for N units.
+ *   2. The matching engine ranks contactable donors, and the system selects the
+ *      top K and notifies all of them. K rises with urgency: 1.3, 1.6 or 2.0
+ *      times the units needed. The seeker does not choose; the system does.
+ *   3. Until a donor accepts, the seeker sees those donors anonymised.
+ *   4. The first N donors to accept are confirmed and revealed by name, and a
+ *      conversation opens. Anyone accepting after that is stood down, and
+ *      their eligibility is not consumed.
+ *   5. A confirmed acceptance updates that donor's record, so they leave the
+ *      eligible pool for the donation interval.
+ *
+ * Nothing in this store holds a phone number or an address.
  */
 
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type {
-  BloodGroup, BloodRequest, ConversationMessage, DonorRequest, InterBankRequest,
-  OutreachCampaign, Role, Urgency,
+  BloodGroup, BloodRequest, ConversationMessage, Donor, DonorAdjustment, DonorRequest,
+  InterBankRequest, OutreachCampaign, Role, Urgency,
 } from '../types';
 import { seededRequests } from '../mock/requests';
+import { donors as baseDonors, MIN_DAYS_BETWEEN_DONATIONS } from '../mock/donors';
+import { donorsToNotify, rankDonorsForRequest } from '../engines/matching';
 import { DEMO_TODAY } from '../mock/demand';
 import { formatDate } from '../lib/format';
 
@@ -24,8 +37,10 @@ const TODAY_LABEL = formatDate(DEMO_TODAY);
 interface State {
   role: Role;
   requests: BloodRequest[];
-  /** One entry per (request, donor) pair the seeker has contacted. */
+  /** One entry per (request, donor) the system notified. */
   donorRequests: DonorRequest[];
+  /** Record changes applied after a confirmed acceptance. */
+  donorAdjustments: Record<string, DonorAdjustment>;
   outreach: OutreachCampaign[];
   interBank: InterBankRequest[];
   donorAvailable: boolean;
@@ -33,9 +48,8 @@ interface State {
 
 type Action =
   | { type: 'selectRole'; role: Role }
-  | { type: 'addRequest'; request: BloodRequest }
-  | { type: 'addDonorRequest'; donorRequest: DonorRequest }
-  | { type: 'setDonorResponse'; requestId: string; donorId: string; accepted: boolean; reply: ConversationMessage }
+  | { type: 'createRequest'; request: BloodRequest; notified: DonorRequest[] }
+  | { type: 'respond'; requestId: string; donorId: string; accepted: boolean; reply: ConversationMessage }
   | { type: 'addMessage'; requestId: string; donorId: string; message: ConversationMessage }
   | { type: 'addOutreach'; campaign: OutreachCampaign }
   | { type: 'addInterBank'; request: InterBankRequest }
@@ -45,52 +59,95 @@ const initialState: State = {
   role: 'seeker',
   requests: seededRequests,
   donorRequests: [],
+  donorAdjustments: {},
   outreach: [],
   interBank: [],
   donorAvailable: true,
 };
+
+/** Apply any recorded changes on top of a donor's base record. */
+function withAdjustments(donor: Donor, adjustments: Record<string, DonorAdjustment>): Donor {
+  const change = adjustments[donor.id];
+  if (!change) return donor;
+  return {
+    ...donor,
+    lastDonationDays: change.lastDonationDays,
+    completedDonations: change.completedDonations,
+    eligible: change.lastDonationDays >= MIN_DAYS_BETWEEN_DONATIONS,
+  };
+}
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'selectRole':
       return { ...state, role: action.role };
 
-    case 'addRequest':
-      return { ...state, requests: [action.request, ...state.requests] };
-
-    case 'addDonorRequest':
+    case 'createRequest':
       return {
         ...state,
-        donorRequests: [...state.donorRequests, action.donorRequest],
-        requests: state.requests.map((request) =>
-          request.id === action.donorRequest.requestId && request.status === 'Matching'
-            ? { ...request, status: 'Awaiting Response' }
-            : request,
-        ),
+        requests: [action.request, ...state.requests],
+        donorRequests: [...state.donorRequests, ...action.notified],
       };
 
-    case 'setDonorResponse': {
+    case 'respond': {
+      const request = state.requests.find((entry) => entry.id === action.requestId);
+      if (!request) return state;
+
+      const alreadyAccepted = state.donorRequests.filter(
+        (entry) => entry.requestId === action.requestId && entry.state === 'Accepted',
+      ).length;
+
+      // The first N to accept are confirmed. Later acceptances are stood down,
+      // so no more blood is collected than the patient needs.
+      const stillNeeded = alreadyAccepted < request.units;
+      const nextState = !action.accepted
+        ? ('Declined' as const)
+        : stillNeeded
+          ? ('Accepted' as const)
+          : ('Stood Down' as const);
+
       const donorRequests = state.donorRequests.map((entry) =>
         entry.requestId === action.requestId && entry.donorId === action.donorId
           ? {
               ...entry,
-              state: action.accepted ? ('Accepted' as const) : ('Declined' as const),
-              messages: action.accepted ? [action.reply] : entry.messages,
+              state: nextState,
+              messages: nextState === 'Accepted' ? [action.reply] : entry.messages,
             }
           : entry,
       );
 
-      const anyAccepted = donorRequests.some(
+      // A confirmed acceptance consumes the donor's eligibility.
+      const donorAdjustments = { ...state.donorAdjustments };
+      if (nextState === 'Accepted') {
+        const donor = baseDonors.find((entry) => entry.id === action.donorId);
+        if (donor) {
+          const current = donorAdjustments[donor.id];
+          donorAdjustments[donor.id] = {
+            lastDonationDays: 0,
+            completedDonations: (current?.completedDonations ?? donor.completedDonations) + 1,
+          };
+        }
+      }
+
+      const acceptedNow = donorRequests.filter(
         (entry) => entry.requestId === action.requestId && entry.state === 'Accepted',
-      );
+      ).length;
 
       return {
         ...state,
         donorRequests,
-        requests: state.requests.map((request) =>
-          request.id === action.requestId && anyAccepted
-            ? { ...request, status: 'Donor Accepted' }
-            : request,
+        donorAdjustments,
+        requests: state.requests.map((entry) =>
+          entry.id !== action.requestId
+            ? entry
+            : {
+                ...entry,
+                status: acceptedNow >= entry.units
+                  ? 'Fulfilled'
+                  : acceptedNow > 0
+                    ? 'Donor Accepted'
+                    : entry.status,
+              },
         ),
       };
     }
@@ -121,7 +178,7 @@ function reducer(state: State, action: Action): State {
 
 /* ------------------------------------------------------------- Persistence */
 
-const STORAGE_KEY = 'bloodgrid.session.v2';
+const STORAGE_KEY = 'bloodgrid.session.v3';
 
 function readStoredState(): State {
   try {
@@ -146,7 +203,6 @@ function writeStoredState(state: State) {
   }
 }
 
-/** Resume id counters past anything already stored, so a refresh cannot collide. */
 function highestSequence(items: { id: string }[], floor: number): number {
   const numbers = items
     .map((item) => Number(item.id.split('-')[1]))
@@ -157,21 +213,25 @@ function highestSequence(items: { id: string }[], floor: number): number {
 /* ----------------------------------------------------------------- Context */
 
 interface AppContextValue extends State {
+  /** Donors with any post-acceptance record changes applied. */
+  donors: Donor[];
+  findDonor: (id: string) => Donor | undefined;
+
   selectRole: (role: Role) => void;
   createBloodRequest: (input: {
     bloodGroup: BloodGroup; urgency: Urgency; sector: string;
     units: number; facility: string; note?: string;
   }) => BloodRequest;
-  sendRequestToDonor: (requestId: string, donorId: string) => void;
   respondToRequest: (requestId: string, donorId: string, accepted: boolean, donorName: string) => void;
   sendMessage: (requestId: string, donorId: string, from: 'seeker' | 'donor', text: string) => void;
   startOutreach: (input: Omit<OutreachCampaign, 'id' | 'createdLabel'>) => OutreachCampaign;
   requestFromPartnerBank: (input: Omit<InterBankRequest, 'id' | 'createdLabel'>) => InterBankRequest;
   setDonorAvailable: (available: boolean) => void;
+
   findRequest: (id: string) => BloodRequest | undefined;
   findDonorRequest: (requestId: string, donorId: string) => DonorRequest | undefined;
   donorRequestsFor: (requestId: string) => DonorRequest[];
-  /** Requests sent to the donor persona, for the donor workspace. */
+  acceptedFor: (requestId: string) => DonorRequest[];
   donorInbox: () => DonorRequest[];
 }
 
@@ -196,8 +256,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { writeStoredState(state); }, [state]);
 
+  const donors = useMemo(
+    () => baseDonors.map((donor) => withAdjustments(donor, state.donorAdjustments)),
+    [state.donorAdjustments],
+  );
+
   const value = useMemo<AppContextValue>(() => ({
     ...state,
+    donors,
+    findDonor: (id) => donors.find((donor) => donor.id === id),
 
     selectRole: (role) => dispatch({ type: 'selectRole', role }),
 
@@ -213,30 +280,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         facility: input.facility,
         note: input.note,
         createdLabel: TODAY_LABEL,
-        status: 'Matching',
+        status: 'Awaiting Response',
       };
-      dispatch({ type: 'addRequest', request });
-      return request;
-    },
 
-    sendRequestToDonor: (requestId, donorId) => {
-      const existing = state.donorRequests.find(
-        (entry) => entry.requestId === requestId && entry.donorId === donorId,
-      );
-      if (existing) return;
-      dispatch({
-        type: 'addDonorRequest',
-        donorRequest: {
-          requestId, donorId, state: 'Sent',
-          sentLabel: TODAY_LABEL, messages: [],
-        },
-      });
+      // The system selects and notifies. The seeker does not pick.
+      const outcome = rankDonorsForRequest(donors, request);
+      const notified: DonorRequest[] = outcome.results
+        .slice(0, donorsToNotify(request.units, request.urgency))
+        .map((result) => ({
+          requestId: request.id,
+          donorId: result.donor.id,
+          state: 'Sent' as const,
+          sentLabel: TODAY_LABEL,
+          messages: [],
+          rank: result.rank,
+          score: result.score,
+          tier: result.tier,
+          objectives: result.objectives,
+        }));
+
+      dispatch({ type: 'createRequest', request, notified });
+      return request;
     },
 
     respondToRequest: (requestId, donorId, accepted, donorName) => {
       messageSequence += 1;
       dispatch({
-        type: 'setDonorResponse',
+        type: 'respond',
         requestId, donorId, accepted,
         reply: {
           id: `MSG-${messageSequence}`,
@@ -286,8 +356,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     donorRequestsFor: (requestId) =>
       state.donorRequests.filter((entry) => entry.requestId === requestId),
 
+    acceptedFor: (requestId) =>
+      state.donorRequests.filter(
+        (entry) => entry.requestId === requestId && entry.state === 'Accepted',
+      ),
+
     donorInbox: () => state.donorRequests.filter((entry) => entry.donorId === DEMO_DONOR_ID),
-  }), [state]);
+  }), [state, donors]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

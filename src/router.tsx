@@ -7,9 +7,7 @@ import Conversation from './screens/Conversation';
 import SeekerOverview from './screens/seeker/Overview';
 import CreateRequest from './screens/seeker/CreateRequest';
 import Matching from './screens/seeker/Matching';
-import MatchResults from './screens/seeker/MatchResults';
-import DonorDetail from './screens/seeker/DonorDetail';
-import RequestSent from './screens/seeker/RequestSent';
+import RequestStatus from './screens/seeker/RequestStatus';
 import MyRequests from './screens/seeker/MyRequests';
 
 import DonorOverview from './screens/donor/Overview';
@@ -30,9 +28,7 @@ export const router = createBrowserRouter([
       { path: '/seeker', element: <SeekerOverview /> },
       { path: '/seeker/request/new', element: <CreateRequest /> },
       { path: '/seeker/request/:id/matching', element: <Matching /> },
-      { path: '/seeker/request/:id/matches', element: <MatchResults /> },
-      { path: '/seeker/request/:id/donor/:donorId', element: <DonorDetail /> },
-      { path: '/seeker/request/:id/sent/:donorId', element: <RequestSent /> },
+      { path: '/seeker/request/:id/matches', element: <RequestStatus /> },
       { path: '/seeker/request/:id/conversation/:donorId', element: <Conversation viewer="seeker" /> },
       { path: '/seeker/requests', element: <MyRequests /> },
 

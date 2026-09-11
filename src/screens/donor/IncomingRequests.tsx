@@ -11,11 +11,10 @@ import {
 } from '../../components/ui';
 import { Footnote } from '../../components/PrototypeLabels';
 import { DEMO_DONOR_ID, useApp } from '../../store/AppStore';
-import { findDonor } from '../../mock/donors';
 import { urgencyTone } from '../../lib/status';
 
 export default function IncomingRequests() {
-  const { donorInbox, findRequest, respondToRequest } = useApp();
+  const { donorInbox, findRequest, respondToRequest, findDonor } = useApp();
   const donor = findDonor(DEMO_DONOR_ID)!;
   const inbox = donorInbox();
 
@@ -23,7 +22,7 @@ export default function IncomingRequests() {
     <Page>
       <PageTitle
         title="Requests"
-        description={`Blood requests sent to ${donor.name} through BloodGrid.`}
+        description={`Requests BloodGrid selected you for and notified you about. You were chosen by the matching engine, not picked by the seeker.`}
       />
 
       {inbox.length === 0 ? (
@@ -90,8 +89,9 @@ export default function IncomingRequests() {
                   {entry.state === 'Accepted' && (
                     <div className="mt-5">
                       <Notice tone="good" title="You accepted this request">
-                        The seeker can now reach you in BloodGrid. Your personal contact details
-                        are not shared.
+                        The seeker can now see your name and reach you in BloodGrid. Your personal
+                        contact details are not shared. Your donation record has been updated, so
+                        you will not be asked again until the 90-day interval has passed.
                       </Notice>
                       <Link
                         to={`/donor/requests/${request.id}/conversation`}
@@ -104,8 +104,19 @@ export default function IncomingRequests() {
 
                   {entry.state === 'Declined' && (
                     <p className="mt-5 text-[12.5px] text-slate-500">
-                      You declined this request. The seeker can contact other donors.
+                      You declined this request. BloodGrid notified other donors as well, so the
+                      patient is still covered.
                     </p>
+                  )}
+
+                  {entry.state === 'Stood Down' && (
+                    <div className="mt-5">
+                      <Notice tone="neutral" title="Thank you, no longer needed">
+                        Enough donors had already accepted by the time you responded, so this
+                        request is covered. Your eligibility has not been used and you remain
+                        available for future requests.
+                      </Notice>
+                    </div>
                   )}
                 </div>
               </li>

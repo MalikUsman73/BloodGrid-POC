@@ -7,7 +7,8 @@
  */
 
 export const CCP1_CURRENT = 'Prototype Match Score, simulated matching output';
-export const CCP1_FUTURE = 'Future implementation: NSGA-II multi-objective optimisation';
+export const CCP1_FUTURE =
+  'Future implementation: NSGA-III multi-objective optimisation';
 export const CCP2_CURRENT = 'Prototype forecast, simulated for proposal-stage demonstration';
 export const CCP2_FUTURE = 'Future implementation: trained forecasting model';
 

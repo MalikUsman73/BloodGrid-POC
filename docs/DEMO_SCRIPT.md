@@ -82,7 +82,7 @@ Let the screen land before speaking.
 
 > "This score is simulated output. It is a deterministic weighted ranking, not an optimiser. What
 > it does is show you the shape of the problem: five competing objectives, and no single ordering
-> that is best for every request. That is exactly why the committed implementation uses NSGA-II
+> that is best for every request. That is exactly why the committed implementation is
 > multi-objective optimisation. The note under the list says precisely that."
 
 **A strong optional beat. The trade-off is real, not decorative.**
@@ -100,30 +100,9 @@ Let the screen land before speaking.
 
 Hover a row to show the list and map highlight together. Zoom once with plus, then Fit.
 
-**Click: View donor**
-
 ---
 
-## 5. Donor detail and sending the request, 45 seconds
-
-> "The full criteria breakdown for this donor: distance, availability, eligibility, and what the
-> ranking was based on."
-
-Point at the panel on the right.
-
-> "And here is the communication model. There is no phone number on this screen, because
-> BloodGrid does not hold one. The seeker sends a request through the application. Contact opens
-> only if the donor accepts."
-
-**Click: Send request**
-
-> "Request sent. The timeline shows what happens next, and it says plainly that messaging becomes
-> available once the donor accepts. Nothing has actually been transmitted: this prototype has no
-> messaging or notification backend."
-
----
-
-## 6. The loop closes, 45 seconds
+## 5. The loop closes, 60 seconds
 
 Point at the workspace switcher before clicking.
 
@@ -226,7 +205,7 @@ record the campaign.
 > place in the flow, with real inputs and real consumers of their output.
 >
 > What it deliberately does not do is claim the hard parts are solved. The matching engine is a
-> weighted ranking, not NSGA-II. The forecast is a composed signal, not a trained model. Those
+> weighted ranking, not an optimiser. The forecast is a composed signal, not a trained model. Those
 > two are the implementation phase, and this prototype gives us the baseline to evaluate them
 > against."
 
@@ -235,8 +214,11 @@ record the campaign.
 ## Anticipated questions
 
 **Is this NSGA-II?**
-> No. It is a deterministic weighted ranking. NSGA-II is committed implementation work. The five
-> objectives on screen are the ones it will optimise over, which is why they are shown.
+> No, and we are no longer committing to NSGA-II specifically. It is a deterministic weighted
+> ranking. Multi-objective optimisation is the committed implementation work, and the method is
+> being selected between exact solving and NSGA-III, because NSGA-II loses selection pressure
+> beyond three objectives and we have five. The five objectives on screen are the ones the
+> optimiser will work over, which is why they are shown.
 
 **How accurate is the forecast?**
 > There is no accuracy figure, because there is no trained model. This is a composed

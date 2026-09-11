@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BloodGrid: Request for Access to Aggregate Blood Demand Data</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 14mm 16mm; }
+  * { box-sizing: border-box; }
+  html { font-size: 10pt; }
+
+  body {
+    margin: 0; color: #111827; line-height: 1.5;
+    font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  }
+
+  /* ---------------------------------------------------------- letterhead */
+  .letterhead {
+    border-bottom: 2.5px solid #111827; padding-bottom: 10px; margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .institution { font-size: 13pt; font-weight: 600; letter-spacing: -0.01em; }
+  .institution .sub { font-size: 9.5pt; font-weight: 400; color: #4b5563; margin-top: 2px; }
+  .refbox { text-align: right; font-size: 8.5pt; color: #4b5563; }
+  .refbox .line { margin-bottom: 3px; }
+  .fill-sm { display: inline-block; min-width: 34mm; border-bottom: 0.8px solid #9ca3af; }
+
+  h1 {
+    font-size: 15pt; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em;
+    text-align: center; text-transform: uppercase;
+  }
+  .doc-sub { text-align: center; font-size: 9.5pt; color: #4b5563; margin: 0 0 14px; }
+
+  h2 {
+    break-inside: avoid;
+    font-size: 10.5pt; font-weight: 700; margin: 16px 0 7px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-bottom: 1px solid #d1d5db; padding-bottom: 3px; break-after: avoid;
+  }
+  h3 { font-size: 9.8pt; font-weight: 600; margin: 11px 0 4px; break-after: avoid; }
+
+  p { margin: 0 0 7px; text-align: justify; }
+  ul, ol { margin: 0 0 7px; padding-left: 16px; }
+  li { margin-bottom: 3px; }
+
+  /* -------------------------------------------------------------- tables */
+  table { width: 100%; border-collapse: collapse; margin: 7px 0 10px; font-size: 9pt; }
+  th {
+    text-align: left; font-weight: 600; padding: 5px 7px; background: #f3f4f6;
+    border: 0.8px solid #9ca3af; font-size: 8.5pt;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  td { padding: 5px 7px; border: 0.8px solid #9ca3af; vertical-align: top; }
+  td.label { width: 42mm; font-weight: 600; background: #fafafa; }
+  td.tick { width: 16mm; text-align: center; }
+  .avoid { break-inside: avoid; }
+
+  /* fillable cells get visible height */
+  td.blank { height: 9mm; }
+  td.blank-tall { height: 16mm; }
+
+  .note { font-size: 8.5pt; color: #4b5563; margin: 4px 0 8px; }
+  .required { color: #991b1b; font-weight: 600; }
+
+  .panel {
+    border: 1px solid #d1d5db; background: #fafafa; padding: 9px 11px;
+    margin: 9px 0; font-size: 9pt; break-inside: avoid;
+  }
+  .panel strong { display: block; margin-bottom: 3px; }
+
+  /* --------------------------------------------------------- signatures */
+  .sig-grid { display: flex; gap: 10mm; margin-top: 4mm; break-inside: avoid; }
+  .sig { flex: 1; }
+  .sig .rule { border-bottom: 0.9px solid #374151; height: 13mm; }
+  .sig .name { font-size: 9pt; font-weight: 600; margin-top: 3px; }
+  .sig .role { font-size: 8.3pt; color: #4b5563; }
+  .sig .fill { font-size: 8.3pt; color: #6b7280; margin-top: 2px; }
+
+  .stamp-box {
+    border: 1px dashed #9ca3af; height: 30mm; width: 55mm;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5pt; color: #9ca3af; margin-top: 4mm;
+  }
+
+  .page-break { break-before: page; page-break-before: always; height: 0; }
+  footer.doc {
+    margin-top: 12px; padding-top: 7px; border-top: 0.8px solid #d1d5db;
+    font-size: 8pt; color: #6b7280;
+  }
+  .checkbox { display: inline-block; width: 3.4mm; height: 3.4mm; border: 0.9px solid #374151; vertical-align: -0.4mm; margin-right: 3px; }
+</style>
+</head>
+<body>
+
+<!-- =================================================== PAGE 1 -->
+<div class="letterhead">
+  <div class="institution">
+    FAST National University of Computer and Emerging Sciences
+    <div class="sub">Islamabad Campus &nbsp;&middot;&nbsp; Department of Software Engineering</div>
+  </div>
+  <div class="refbox">
+    <div class="line">Ref. No. <span class="fill-sm">&nbsp;</span></div>
+    <div class="line">Date <span class="fill-sm">&nbsp;</span></div>
+  </div>
+</div>
+
+<h1>Request for Access to Aggregate Blood Demand Data</h1>
+<p class="doc-sub">
+  Final Year Project &nbsp;&middot;&nbsp; BS Software Engineering, 23rd Batch &nbsp;&middot;&nbsp; Project title: BloodGrid
+</p>
+
+<h2>Section A &nbsp;&middot;&nbsp; Purpose of this request</h2>
+
+<p>
+  This document formally requests access to historical, aggregate blood demand records held by
+  your institution, for the sole purpose of academic research undertaken as a Final Year Project
+  in the Department of Software Engineering, FAST National University of Computer and
+  Emerging Sciences, Islamabad.
+</p>
+
+<p>
+  <strong>No patient-identifiable information, donor-identifiable information, or clinical record
+  of any individual is requested or required.</strong> The request is limited to counts of blood
+  units by date and blood group, together with a small number of operational indicators described
+  in Section C.
+</p>
+
+<div class="panel">
+  <strong>Summary of what is being asked for</strong>
+  Daily or monthly counts of blood units issued, broken down by ABO and Rh blood group, covering
+  the longest period your records allow. Where available, we also request indicators of days on
+  which stock was unavailable, so that the analysis can distinguish blood that was requested from
+  blood that was issued.
+</div>
+
+<h2>Section B &nbsp;&middot;&nbsp; The project, and why this data is needed</h2>
+
+<h3>B1. Project overview</h3>
+<p>
+  BloodGrid is an academic software project addressing coordination in blood services. It combines
+  two components: matching individual blood requests to suitable registered donors, and analysing
+  historical blood demand in order to anticipate periods of elevated need before they occur.
+</p>
+
+<h3>B2. Why real data is necessary</h3>
+<p>
+  The second component, blood demand analysis, is the subject of this request. A demand analysis
+  model must be developed and evaluated against genuine historical demand. Synthetic or simulated
+  data can demonstrate that a software system functions, but it cannot establish whether the
+  analysis produces findings of any real value, because the patterns in simulated data are placed
+  there by the person who generated it.
+</p>
+<p>
+  Access to authentic records would allow the project to determine whether demand for particular
+  blood groups follows patterns that can be identified in advance, and whether such a system could
+  give a blood service useful advance notice of periods of elevated demand. Without real data the
+  project can only demonstrate feasibility of the software, not usefulness of the analysis.
+</p>
+
+<h3>B3. Intended benefit to the participating institution</h3>
+<p>
+  Should your institution wish, the project team will provide, at no cost and with no obligation:
+</p>
+<ul>
+  <li>A written summary of any demand patterns identified in your data, including seasonal and
+      weekly variation by blood group.</li>
+  <li>A copy of the final project report and its findings.</li>
+  <li>A demonstration of the resulting software system.</li>
+</ul>
+<p>
+  The project team makes no claim that its output is validated for operational or clinical use,
+  and no such use is proposed. The work is academic in nature.
+</p>
+
+<h3>B4. Scope limitation</h3>
+<p>
+  This request relates to historical records only. It does not seek access to any live system, any
+  database connection, any patient record, any donor register, or any operational integration with
+  your institution's systems.
+</p>
+
+
+<!-- =================================================== PAGE 2 -->
+<div class="page-break"></div>
+
+<h2>Section C &nbsp;&middot;&nbsp; Data requested</h2>
+
+<p class="note">
+  Please supply whatever subset of the following your records permit. Items marked
+  <span class="required">Essential</span> are the minimum needed for the analysis to proceed.
+  Partial data is welcome; the project will state clearly what was and was not available.
+</p>
+
+<h3>C1. Essential fields</h3>
+<table class="avoid">
+  <tr>
+    <th style="width:40mm">Field</th>
+    <th>Description</th>
+    <th class="tick">Available</th>
+  </tr>
+  <tr>
+    <td class="label">Date</td>
+    <td>Date of issue. Daily records are strongly preferred. Monthly totals are acceptable if daily records are not held.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Blood group</td>
+    <td>ABO and Rh recorded separately, that is A+, A&minus;, B+, B&minus;, AB+, AB&minus;, O+, O&minus;.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Units issued</td>
+    <td>Count of units issued per blood group per period.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Period covered</td>
+    <td>The longest continuous period available. Three years or more is preferred; a shorter period is still useful.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+</table>
+
+<h3>C2. Additional fields, important for accuracy</h3>
+<p class="note">
+  These allow the analysis to distinguish blood that was <em>needed</em> from blood that was
+  <em>issued</em>. Without them, demand during shortage periods is systematically understated,
+  which is precisely the period the analysis is intended to address.
+</p>
+<table class="avoid">
+  <tr>
+    <th style="width:40mm">Field</th>
+    <th>Why it is requested</th>
+    <th class="tick">Available</th>
+  </tr>
+  <tr>
+    <td class="label">Days at zero stock</td>
+    <td>Identifies periods where demand exceeded what could be issued.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Unfulfilled or referred-out requests</td>
+    <td>Together with units issued, allows actual demand to be reconstructed.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Units cross-matched</td>
+    <td>Cross-match counts sit closer to clinical demand than issue counts.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Units returned unused</td>
+    <td>Distinguishes units issued from units actually transfused.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Units discarded or expired</td>
+    <td>Separates wastage from patient demand.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+</table>
+
+<h3>C3. Optional context</h3>
+<table class="avoid">
+  <tr>
+    <th style="width:40mm">Field</th>
+    <th>Why it is useful</th>
+    <th class="tick">Available</th>
+  </tr>
+  <tr>
+    <td class="label">Requesting department or ward</td>
+    <td>Separates scheduled surgical demand from emergency demand.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Elective or emergency indicator</td>
+    <td>These two components behave differently over time.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+  <tr>
+    <td class="label">Changes in recording practice</td>
+    <td>Any change of system, capacity, or procedure that would create an apparent step in the records.</td>
+    <td class="tick"><span class="checkbox"></span></td>
+  </tr>
+</table>
+
+<h3>C4. Acceptable formats</h3>
+<p>
+  Comma-separated values, Microsoft Excel, or any standard database export. Consistent column
+  naming across years is helpful but not necessary; the project team will undertake all cleaning
+  and reconciliation. Printed or scanned records can also be accommodated if no electronic form
+  exists, subject to volume.
+</p>
+
+
+<!-- =================================================== PAGE 3 -->
+<div class="page-break"></div>
+
+<h2>Section D &nbsp;&middot;&nbsp; Undertakings on data handling and confidentiality</h2>
+
+<p>The project team gives the following undertakings in respect of any data provided.</p>
+
+<table class="avoid">
+  <tr><td class="label" style="width:34mm">D1. Purpose limitation</td>
+      <td>The data will be used solely for the academic project described in Section B, and for no
+          other purpose, project, or party.</td></tr>
+  <tr><td class="label">D2. No personal data</td>
+      <td>No patient names, identifiers, record numbers, ages, diagnoses, addresses, or contact
+          details are requested. No donor identifiers are requested. Should any such information
+          be present in a supplied file, it will be deleted before analysis and its presence
+          reported to your institution.</td></tr>
+  <tr><td class="label">D3. Secure storage</td>
+      <td>Data will be held on password-protected devices belonging to the named team members and
+          the supervising faculty member, and will not be uploaded to any public repository,
+          shared drive, or third-party service.</td></tr>
+  <tr><td class="label">D4. Aggregate reporting</td>
+      <td>Findings will be reported only in aggregate and statistical form. No individual record
+          will be reproduced.</td></tr>
+  <tr><td class="label">D5. Attribution</td>
+      <td>Your institution will be named in the project report only with written permission. If
+          permission is withheld, the source will be described generically, for example as
+          "a regional blood centre".</td></tr>
+  <tr><td class="label">D6. Retention and disposal</td>
+      <td>Data will be retained only for the duration of the project and any subsequent
+          examination process, and will be securely deleted thereafter, or on written request from
+          your institution, whichever is earlier.</td></tr>
+  <tr><td class="label">D7. Right of withdrawal</td>
+      <td>Your institution may withdraw consent at any time, in writing and without giving reason,
+          upon which all supplied data will be deleted and confirmation provided.</td></tr>
+  <tr><td class="label">D8. Review before publication</td>
+      <td>On request, your institution will be given the opportunity to review any material
+          referring to its data before submission or publication.</td></tr>
+</table>
+
+<h2>Section E &nbsp;&middot;&nbsp; Institution details</h2>
+<p class="note">To be completed by the supplying institution.</p>
+
+<table class="avoid">
+  <tr><td class="label">Name of institution</td><td class="blank" colspan="3"></td></tr>
+  <tr><td class="label">Address</td><td class="blank-tall" colspan="3"></td></tr>
+  <tr>
+    <td class="label">Type of facility</td>
+    <td colspan="3" style="height:9mm">
+      <span class="checkbox"></span> Regional blood centre &nbsp;&nbsp;
+      <span class="checkbox"></span> Hospital blood bank &nbsp;&nbsp;
+      <span class="checkbox"></span> Standalone blood bank &nbsp;&nbsp;
+      <span class="checkbox"></span> Other: ______________________
+    </td>
+  </tr>
+  <tr><td class="label">Name of representative</td><td class="blank" colspan="3"></td></tr>
+  <tr><td class="label">Designation</td><td class="blank" colspan="3"></td></tr>
+  <tr><td class="label">Telephone</td><td class="blank"></td>
+      <td class="label" style="width:26mm">Email</td><td class="blank"></td></tr>
+  <tr><td class="label">Data custodian, if different</td><td class="blank" colspan="3"></td></tr>
+</table>
+
+<h3>E1. Data availability, as assessed by the institution</h3>
+<table class="avoid">
+  <tr><td class="label">Earliest record available</td><td class="blank"></td>
+      <td class="label" style="width:32mm">Latest record available</td><td class="blank"></td></tr>
+  <tr><td class="label">Granularity held</td>
+      <td colspan="3" style="height:9mm">
+        <span class="checkbox"></span> Daily &nbsp;&nbsp;
+        <span class="checkbox"></span> Weekly &nbsp;&nbsp;
+        <span class="checkbox"></span> Monthly &nbsp;&nbsp;
+        <span class="checkbox"></span> Transaction level
+      </td></tr>
+  <tr><td class="label">Format to be supplied</td>
+      <td colspan="3" style="height:9mm">
+        <span class="checkbox"></span> CSV &nbsp;&nbsp;
+        <span class="checkbox"></span> Excel &nbsp;&nbsp;
+        <span class="checkbox"></span> Database export &nbsp;&nbsp;
+        <span class="checkbox"></span> Printed or scanned
+      </td></tr>
+  <tr><td class="label">Conditions or restrictions</td><td class="blank-tall" colspan="3"></td></tr>
+</table>
+
+
+<!-- =================================================== PAGE 4 -->
+<div class="page-break"></div>
+
+<h2>Section F &nbsp;&middot;&nbsp; Declaration by the project team</h2>
+
+<p>
+  We, the undersigned, confirm that the data requested will be used only as described in this
+  document, that the undertakings in Section D will be observed in full, and that no attempt will
+  be made to identify any individual from the data supplied.
+</p>
+
+<div class="sig-grid">
+  <div class="sig">
+    <div class="rule"></div>
+    <div class="name">Abdullah Tariq</div>
+    <div class="role">Project Team Member</div>
+    <div class="fill">Reg. No. ____________  Date __________</div>
+  </div>
+  <div class="sig">
+    <div class="rule"></div>
+    <div class="name">Malik Usman</div>
+    <div class="role">Project Team Member</div>
+    <div class="fill">Reg. No. ____________  Date __________</div>
+  </div>
+  <div class="sig">
+    <div class="rule"></div>
+    <div class="name">Rizwan Saeed</div>
+    <div class="role">Project Team Member</div>
+    <div class="fill">Reg. No. ____________  Date __________</div>
+  </div>
+</div>
+
+<h2>Section G &nbsp;&middot;&nbsp; Endorsement by the department</h2>
+
+<p>
+  The undersigned confirm that this project is a recognised Final Year Project of the Department
+  of Software Engineering, FAST National University of Computer and Emerging Sciences, Islamabad, that the request described above is made in the course
+  of supervised academic work, and that the department supports this request.
+</p>
+
+<div class="sig-grid" style="margin-top:6mm">
+  <div class="sig">
+    <div class="rule"></div>
+    <div class="name">Dr. Isma ul Hassan</div>
+    <div class="role">Project Supervisor, Department of Software Engineering</div>
+    <div class="fill">Signature and date &nbsp;&nbsp; Official stamp</div>
+  </div>
+  <div class="sig">
+    <div class="rule"></div>
+    <div class="name">Dr. Atif Aftab Ahmad Jilani</div>
+    <div class="role">Head of Department, Software Engineering</div>
+    <div class="fill">Signature and date &nbsp;&nbsp; Official stamp</div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Section H &nbsp;&middot;&nbsp; Authorisation by the supplying institution</h2>
+
+<p>
+  I confirm that I am authorised to release the data described in Section C on behalf of the
+  institution named in Section E, that the data supplied contains no patient-identifiable or
+  donor-identifiable information, and that I have read and accept the undertakings set out in
+  Section D.
+</p>
+
+<table class="avoid" style="margin-top:5mm">
+  <tr>
+    <td class="label">Data approved for release</td>
+    <td style="height:9mm">
+      <span class="checkbox"></span> In full, as requested &nbsp;&nbsp;&nbsp;
+      <span class="checkbox"></span> In part, as noted in Section E &nbsp;&nbsp;&nbsp;
+      <span class="checkbox"></span> Declined
+    </td>
+  </tr>
+  <tr>
+    <td class="label">Institution may be named in the report</td>
+    <td style="height:9mm">
+      <span class="checkbox"></span> Yes &nbsp;&nbsp;&nbsp;
+      <span class="checkbox"></span> No, describe generically
+    </td>
+  </tr>
+</table>
+
+<div class="sig-grid" style="margin-top:8mm">
+  <div class="sig" style="flex:1.4">
+    <div class="rule"></div>
+    <div class="name">[NAME OF AUTHORISED REPRESENTATIVE]</div>
+    <div class="role">Designation ______________________________</div>
+    <div class="fill">Signature and date</div>
+  </div>
+  <div class="sig">
+    <div class="stamp-box">Official stamp of the institution</div>
+  </div>
+</div>
+
+<h2 style="margin-top:10mm">Contact for this request</h2>
+<table class="avoid">
+  <tr><td class="label">Project team contact</td><td class="blank"></td>
+      <td class="label" style="width:26mm">Telephone</td><td class="blank"></td></tr>
+  <tr><td class="label">Email</td><td class="blank"></td>
+      <td class="label">Supervisor email</td><td class="blank"></td></tr>
+</table>
+
+<p class="note" style="margin-top:6mm">
+  This document is a request for voluntary cooperation and creates no legal or contractual
+  obligation on the part of the supplying institution. A copy of the departmental ethics approval
+  and a formal data-sharing agreement can be provided on request.
+</p>
+
+
+</body>
+</html>

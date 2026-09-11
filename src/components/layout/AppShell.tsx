@@ -139,7 +139,7 @@ export default function AppShell() {
         <div className="max-w-[1320px] mx-auto px-5 sm:px-7 py-4">
           <p className="text-[12px] text-slate-500">
             BloodGrid proposal-stage proof of concept. Simulated demonstration data throughout.
-            NSGA-II optimisation and the demand forecasting model are implementation-phase work.
+            Multi-objective optimisation and the demand forecasting model are implementation-phase work.
           </p>
         </div>
       </footer>

@@ -7,12 +7,11 @@
 
 import { Button, Detail, DetailList, Page, PageTitle, Section, Status } from '../../components/ui';
 import { useApp } from '../../store/AppStore';
-import { findDonor } from '../../mock/donors';
 import { DEMO_DONOR_ID } from '../../store/AppStore';
 import { MIN_DAYS_BETWEEN_DONATIONS } from '../../mock/donors';
 
 export default function DonorOverview() {
-  const { donorAvailable, setDonorAvailable, donorInbox } = useApp();
+  const { donorAvailable, setDonorAvailable, donorInbox, findDonor } = useApp();
   const donor = findDonor(DEMO_DONOR_ID)!;
 
   const inbox = donorInbox();

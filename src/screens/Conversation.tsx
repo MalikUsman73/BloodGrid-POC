@@ -14,14 +14,13 @@ import { Navigate, useParams } from 'react-router-dom';
 import { BloodGroup as BloodGroupTag, Button, Notice, Page, PageTitle, inputStyles } from '../components/ui';
 import { Footnote } from '../components/PrototypeLabels';
 import { DEMO_DONOR_ID, useApp } from '../store/AppStore';
-import { findDonor } from '../mock/donors';
 
 export default function Conversation({ viewer }: { viewer: 'seeker' | 'donor' }) {
   const params = useParams();
   const requestId = params.id!;
   const donorId = viewer === 'donor' ? DEMO_DONOR_ID : params.donorId!;
 
-  const { findRequest, findDonorRequest, sendMessage } = useApp();
+  const { findRequest, findDonorRequest, sendMessage, findDonor } = useApp();
   const [draft, setDraft] = useState('');
 
   const request = findRequest(requestId);

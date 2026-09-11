@@ -14,7 +14,7 @@ const BRANCHES = [
     group: 'Individual users',
     who: 'Blood seekers and donors',
     component: 'CCP 1, donor matching optimisation',
-    future: 'Future implementation: NSGA-II multi-objective optimisation',
+    future: 'Future implementation: NSGA-III multi-objective optimisation',
     steps: ['Blood request', 'Compatible donors', 'Ranked donors', 'Request and conversation'],
   },
   {
@@ -31,7 +31,7 @@ export default function Landing() {
     <div className="min-h-screen flex flex-col">
       <p className="bg-slate-100 border-b border-slate-200 px-5 py-2 text-center text-[11.5px] leading-[1.6] text-slate-600">
         Proposal-stage prototype. All data shown is simulated demonstration data and all
-        computational output is simulated. NSGA-II optimisation and the forecasting model are
+        computational output is simulated. Multi-objective optimisation and the forecasting model are
         committed implementation work, not part of this prototype.
       </p>
 

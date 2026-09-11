@@ -4,11 +4,10 @@ import {
   Status, Table, Td, Th,
 } from '../../components/ui';
 import { useApp } from '../../store/AppStore';
-import { findDonor } from '../../mock/donors';
 import { requestStatusTone, urgencyTone } from '../../lib/status';
 
 export default function MyRequests() {
-  const { requests, donorRequestsFor } = useApp();
+  const { requests, donorRequestsFor, findDonor } = useApp();
 
   return (
     <Page>
