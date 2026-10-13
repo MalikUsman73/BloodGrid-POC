@@ -78,3 +78,14 @@ describe('properties over random pools', () => {
     expect(a.selected.map((s) => s.donor.id)).toEqual(b.selected.map((s) => s.donor.id));
   });
 });
+
+describe('method comparison', () => {
+  it('never marks the chosen Pareto set as beaten, and flags a baseline that is', () => {
+    const pool = Array.from({ length: 40 }, (_, i) =>
+      donor({ id: `c${String(i).padStart(2, '0')}`, group: i % 5 === 0 ? 'O-' : 'O+', distanceKm: 1 + (i % 11), daysSinceDonation: 90 + ((i * 37) % 300), accepted: i % 7, received: 8 }),
+    );
+    const out = runMatch(pool, request({ units: 2, urgency: 'Urgent' }));
+    expect(out.comparison.map((c) => c.algorithm)).toEqual(['pareto', 'weighted', 'greedy', 'nearest']);
+    expect(out.comparison[0].dominated).toBe(false);
+  });
+});

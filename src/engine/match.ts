@@ -1,6 +1,6 @@
 import { nearestCompatible, sequentialGreedy, weightedSum } from './baselines';
 import { screenDonors, type FilterStage, type Rejection } from './filters';
-import { buildContext, donorTerms, evaluateSet, responseProbability, type PoolContext } from './objectives';
+import { buildContext, dominates, donorTerms, evaluateSet, responseProbability, type PoolContext } from './objectives';
 import { paretoFront, selectFromFront, type ParetoPoint } from './selection';
 import { contactSetSize } from './setSize';
 import {
@@ -29,6 +29,8 @@ export interface AlgorithmOutcome {
   algorithm: AlgorithmId;
   donors: SelectedDonor[];
   objectives: ObjectiveValues;
+  /** True when some contact set beats this one on every objective (so the method left value on the table). */
+  dominated: boolean;
 }
 
 export interface MatchOutcome {
@@ -60,8 +62,19 @@ function describe(set: readonly Donor[], ctx: PoolContext): SelectedDonor[] {
   });
 }
 
-function outcomeFor(algorithm: AlgorithmId, set: readonly Donor[], ctx: PoolContext): AlgorithmOutcome {
-  return { algorithm, donors: describe(set, ctx), objectives: evaluateSet(set, ctx) };
+function outcomeFor(
+  algorithm: AlgorithmId,
+  set: readonly Donor[],
+  ctx: PoolContext,
+  front: readonly ParetoPoint[],
+): AlgorithmOutcome {
+  const objectives = evaluateSet(set, ctx);
+  return {
+    algorithm,
+    donors: describe(set, ctx),
+    objectives,
+    dominated: front.some((p) => dominates(p.objectives, objectives)),
+  };
 }
 
 /** Run the whole pipeline: screen, size, search, select. Pure and deterministic. */
@@ -117,10 +130,10 @@ export function runMatch(
   }
 
   const comparison: AlgorithmOutcome[] = [
-    outcomeFor('pareto', selectedDonors, ctx),
-    outcomeFor('weighted', weightedSum(screening.eligible, k, request.urgency, ctx), ctx),
-    outcomeFor('greedy', sequentialGreedy(screening.eligible, k, ctx), ctx),
-    outcomeFor('nearest', nearestCompatible(screening.eligible, k), ctx),
+    outcomeFor('pareto', selectedDonors, ctx, search.front),
+    outcomeFor('weighted', weightedSum(screening.eligible, k, request.urgency, ctx), ctx, search.front),
+    outcomeFor('greedy', sequentialGreedy(screening.eligible, k, ctx), ctx, search.front),
+    outcomeFor('nearest', nearestCompatible(screening.eligible, k), ctx, search.front),
   ];
 
   return {
