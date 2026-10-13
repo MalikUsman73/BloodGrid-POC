@@ -97,7 +97,10 @@ export class LocalRepository implements Repository {
   }
 
   async listRequests() {
-    return this.requests.map(({ rows: _rows, audit: _audit, ...r }) => r);
+    return this.requests.map((r) => ({
+      id: r.id, code: r.code, recipientGroup: r.recipientGroup, units: r.units, urgency: r.urgency,
+      sector: r.sector, k: r.k, status: r.status, createdAt: r.createdAt,
+    }));
   }
 
   async getRequest(id: string): Promise<RequestDetail | null> {
