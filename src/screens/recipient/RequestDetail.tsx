@@ -1,21 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { RequestDetail as Detail } from '../data';
-import { DEFAULT_CONFIG, type AlgorithmOutcome, type MatchOutcome, type ObjectiveKey } from '../engine';
-import { ALGORITHMS, OBJECTIVES, formatDate, pct } from '../lib/labels';
-import { useApp } from '../state/AppContext';
-import { recallOutcome } from '../state/outcomes';
-import { Funnel } from '../ui/Funnel';
-import { ObjectiveStrip } from '../ui/ObjectiveStrip';
-import { SectorMap } from '../ui/SectorMap';
-import { EmptyState, ErrorState, Loading } from '../ui/States';
-import { statusTone } from './Requests';
+import type { RequestDetail as Detail } from '../../data';
+import { DEFAULT_CONFIG, type AlgorithmOutcome, type MatchOutcome, type ObjectiveKey } from '../../engine';
+import { ALGORITHMS, OBJECTIVES, formatDate, pct, plural, requestTone, STATUS_LABEL } from '../../lib/labels';
+import { useApp } from '../../state/AppContext';
+import { recallOutcome } from '../../state/outcomes';
+import { Funnel } from '../../ui/Funnel';
+import { ObjectiveStrip } from '../../ui/ObjectiveStrip';
+import { SectorMap } from '../../ui/SectorMap';
+import { Alert, Badge, Button, GroupChip, PageHeader, type Tone } from '../../ui/kit';
+import { IconChevron } from '../../ui/icons';
+import { EmptyState, ErrorState, Loading } from '../../ui/States';
+import { useToast } from '../../ui/Toast';
 
 type Tab = 'donors' | 'screening' | 'compare';
+const TAB_LABEL: Record<Tab, string> = { donors: 'Selected donors', screening: 'Screening', compare: 'Compare methods' };
+const stateTone = (s: string): Tone => (s === 'Accepted' ? 'ok' : s === 'Declined' ? 'bad' : s === 'Stood Down' ? 'neutral' : 'info');
 
 export function RequestDetail() {
   const { id = '' } = useParams();
   const { repo, ready } = useApp();
+  const toast = useToast();
   const [detail, setDetail] = useState<Detail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('donors');
@@ -35,13 +40,20 @@ export function RequestDetail() {
     if (ready) void load();
   }, [ready, load]);
 
+  // Donors answer from their own accounts, so check back while the request is open.
+  useEffect(() => {
+    if (detail?.status !== 'Awaiting response') return;
+    const t = setInterval(() => void load(), 15_000);
+    return () => clearInterval(t);
+  }, [detail?.status, load]);
+
   async function respond(rowId: string, state: 'Accepted' | 'Declined') {
     setPending(rowId);
     try {
       await repo.respond(rowId, state);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not record the response.');
+      toast.error(e instanceof Error ? e.message : 'Could not record the response.');
     } finally {
       setPending(null);
     }
@@ -52,8 +64,8 @@ export function RequestDetail() {
   if (detail === null) {
     return (
       <section className="card">
-        <EmptyState title="Request not found" action={<Link className="btn" to="/requests">Back to requests</Link>}>
-          It may have been cleared when the demo data was reset.
+        <EmptyState title="Request not found" action={<Link className="btn" to="/recipient/requests">Back to requests</Link>}>
+          It may belong to another account, or it was cleared.
         </EmptyState>
       </section>
     );
@@ -66,21 +78,28 @@ export function RequestDetail() {
 
   return (
     <>
-      <div className="page-head">
-        <Link to="/requests" className="crumb">← Requests</Link>
-        <h1>
-          {detail.code} · {detail.recipientGroup}, {detail.units} {detail.units === 1 ? 'unit' : 'units'}
-          {' '}<span className={`tag ${statusTone(detail.status)}`} style={{ verticalAlign: 'middle' }}>{detail.status}</span>
-        </h1>
-        <p>
-          {detail.urgency} request in {detail.sector}, raised {formatDate(detail.createdAt)}.
-          {' '}{accepted} of {detail.units} needed {detail.units === 1 ? 'donor has' : 'donors have'} accepted.
-        </p>
-      </div>
+      <Link to="/recipient/requests" className="crumb"><IconChevron />Requests</Link>
+      <PageHeader
+        title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {detail.code}
+            <GroupChip group={detail.recipientGroup} />
+            <Badge tone={requestTone(detail.status)}>{STATUS_LABEL[detail.status] ?? detail.status}</Badge>
+          </span>
+        }
+        subtitle={
+          <>
+            {plural(detail.units, 'unit')} · {detail.urgency} · {detail.sector} · raised {formatDate(detail.createdAt)}.
+            {' '}{accepted} of {detail.units} {detail.units === 1 ? 'donor has' : 'donors have'} accepted.
+          </>
+        }
+      />
 
       {partial && (
-        <div className="banner warn" role="status">
-          <strong>Short contact set.</strong> {detail.k} donors were wanted, but only {detail.donors.length} were eligible. All of them were notified.
+        <div style={{ marginBottom: 20 }}>
+          <Alert tone="warn" title="Short contact set">
+            {detail.k} donors were wanted, but only {detail.donors.length} were eligible. All of them were notified.
+          </Alert>
         </div>
       )}
 
@@ -92,42 +111,38 @@ export function RequestDetail() {
 
       <section className="card">
         <div className="tabs" role="tablist">
-          {(['donors', 'screening', 'compare'] as Tab[]).map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {t === 'donors' ? 'Selected donors' : t === 'screening' ? 'Screening' : 'Compare methods'}
-            </button>
+          {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
           ))}
         </div>
 
         {tab === 'donors' && (
-          <div className="detail-grid">
-            <div className="table-wrap" style={{ border: '1px solid var(--line)', borderRadius: 6 }}>
-              <table>
+          <>
+            <div className="table-wrap">
+              <table className="cards">
                 <thead>
                   <tr>
                     <th>#</th><th>Donor</th><th>Group</th><th>Sector</th>
-                    <th className="r">Distance</th><th className="r">Last gave</th><th className="r">Responds</th><th>Status</th><th />
+                    <th className="r">Distance</th><th className="r">Last gave</th><th className="r">Likelihood</th><th>Status</th><th />
                   </tr>
                 </thead>
                 <tbody>
                   {detail.donors.map((r) => (
                     <tr key={r.id}>
-                      <td className="muted num">{r.rank}</td>
-                      <td className="code">{r.donor.code}</td>
-                      <td className="group">{r.donor.group}</td>
-                      <td>{r.donor.sector}</td>
-                      <td className="r num nowrap">{r.donor.distanceKm.toFixed(1)} km</td>
-                      <td className="r num nowrap">{r.donor.daysSinceDonation} d</td>
-                      <td className="r num">{pct(r.p)}</td>
-                      <td>
-                        <span className={`tag ${r.state === 'Accepted' ? 'ok' : r.state === 'Declined' ? 'bad' : ''}`}>{r.state}</span>
-                      </td>
-                      <td className="r nowrap">
+                      <td className="muted num" data-label="Rank">{r.rank}</td>
+                      <td className="first mono" data-label="Donor">{r.donor.code}</td>
+                      <td data-label="Group"><GroupChip group={r.donor.group} /></td>
+                      <td data-label="Sector">{r.donor.sector}</td>
+                      <td className="r num nowrap" data-label="Distance">{r.donor.distanceKm.toFixed(1)} km</td>
+                      <td className="r num nowrap" data-label="Last gave">{r.donor.daysSinceDonation} d ago</td>
+                      <td className="r num" data-label="Likelihood">{pct(r.p)}</td>
+                      <td data-label="Status"><Badge tone={stateTone(r.state)}>{r.state}</Badge></td>
+                      <td className="r nowrap" data-label="">
                         {r.state === 'Sent' && (
-                          <>
-                            <button className="btn small" disabled={pending === r.id} onClick={() => void respond(r.id, 'Accepted')}>Accept</button>{' '}
-                            <button className="btn small quiet" disabled={pending === r.id} onClick={() => void respond(r.id, 'Declined')}>Decline</button>
-                          </>
+                          <span style={{ display: 'inline-flex', gap: 6 }} title="Demo only: answers on behalf of a pool donor who has no account">
+                            <Button size="sm" disabled={pending === r.id} onClick={() => void respond(r.id, 'Accepted')}>Simulate accept</Button>
+                            <Button size="sm" variant="ghost" disabled={pending === r.id} onClick={() => void respond(r.id, 'Declined')}>Decline</Button>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -145,14 +160,15 @@ export function RequestDetail() {
                 </div>
               </div>
               <div className="prose">
-                <p>Donors are shown by code and sector only; identity is outside this module.</p>
+                <p>Donors are shown by code and sector only. Their names and contact details are never visible to you.</p>
                 <p>
-                  Accept and Decline stand in for the donor's own app. When {detail.units === 1 ? 'a donor accepts' : `${detail.units} donors accept`},
-                  the rest are stood down and become available again.
+                  Donors with a BloodGrid account answer from their own app. For pool donors without one, the simulate buttons stand in so the
+                  flow can be demonstrated. When {detail.units === 1 ? 'a donor accepts' : `${detail.units} donors accept`}, the rest are stood
+                  down and become available again.
                 </p>
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {tab === 'screening' && (
@@ -172,17 +188,14 @@ export function RequestDetail() {
           </div>
         )}
 
-        {tab === 'compare' && (
-          <div>
-            {outcome && outcome.comparison.length > 0 ? (
-              <Compare outcome={outcome} />
-            ) : (
-              <EmptyState title="Comparison not available">
-                The method comparison is kept for the session in which a request is created. Create a new request to see it.
-              </EmptyState>
-            )}
-          </div>
-        )}
+        {tab === 'compare' &&
+          (outcome && outcome.comparison.length > 0 ? (
+            <Compare outcome={outcome} />
+          ) : (
+            <EmptyState title="Comparison not available">
+              The method comparison is kept for the session in which a request is created. Raise a new request to see it.
+            </EmptyState>
+          ))}
       </section>
     </>
   );
@@ -190,7 +203,7 @@ export function RequestDetail() {
 
 function Screening({ outcome }: { outcome: MatchOutcome }) {
   return (
-    <div className="grid-2" style={{ gridTemplateColumns: 'minmax(0,6fr) minmax(0,5fr)' }}>
+    <div className="builder" style={{ gridTemplateColumns: 'minmax(0,6fr) minmax(0,5fr)' }}>
       <Funnel stages={outcome.stages} poolSize={outcome.poolSize} />
       <dl className="kv" style={{ alignContent: 'start' }}>
         <dt>Donor pool</dt><dd className="num">{outcome.poolSize}</dd>
@@ -198,7 +211,7 @@ function Screening({ outcome }: { outcome: MatchOutcome }) {
         <dt>Contact set size</dt><dd className="num">{outcome.k}</dd>
         <dt>Sets evaluated</dt><dd className="num">{outcome.evaluated.toLocaleString()}</dd>
         <dt>Non-dominated</dt><dd className="num">{outcome.front.length}</dd>
-        {outcome.warnings.map((w) => (<span key={w} style={{ gridColumn: '1 / -1' }} className="hint">{w}</span>))}
+        {outcome.warnings.map((w) => (<span key={w} className="hint kv-wide">{w}</span>))}
       </dl>
     </div>
   );
@@ -238,17 +251,15 @@ function Compare({ outcome }: { outcome: MatchOutcome }) {
                   </td>
                 ))}
                 <td className="r num">{row.donors.filter((d) => chosen.has(d.donor.id)).length} of {row.donors.length}</td>
-                <td>
-                  <span className={`tag ${row.dominated ? 'bad' : 'ok'}`}>{row.dominated ? 'Beaten by another set' : 'Not beaten'}</span>
-                </td>
+                <td><Badge tone={row.dominated ? 'bad' : 'ok'}>{row.dominated ? 'Beaten by another set' : 'Not beaten'}</Badge></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="hint" style={{ padding: '12px 20px 16px' }}>
-        A dot marks the best value in each column. “Beaten by another set” means some contact set is at least as good on all four objectives and
-        better on one, so the method left value on the table.
+        A dot marks the best value in each column. “Beaten by another set” means some contact set is at least as good on all four objectives
+        and better on one, so the method left value on the table.
       </p>
     </>
   );

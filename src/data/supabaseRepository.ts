@@ -1,9 +1,11 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BloodGroup, Donor, Urgency } from '../engine';
 import { sectorDistanceKm } from './sectors';
 import {
   DonorUnavailableError,
   type AuditRow,
+  type DonorOffer,
+  type DonorProfile,
   type DonorState,
   type Repository,
   type RequestDetail,
@@ -11,11 +13,7 @@ import {
   type RequestStatus,
 } from './types';
 
-const DAY_MS = 86_400_000;
-
-export function daysSince(isoDate: string, now = Date.now()): number {
-  return Math.max(0, Math.floor((now - Date.parse(`${isoDate}T00:00:00Z`)) / DAY_MS));
-}
+import { daysSince } from './dates';
 
 interface DonorDbRow {
   id: string;
@@ -72,11 +70,8 @@ const toRequest = (r: RequestDbRow): RequestRow => ({
 
 export class SupabaseRepository implements Repository {
   readonly source = 'supabase' as const;
-  private readonly client: SupabaseClient;
 
-  constructor(url: string, key: string) {
-    this.client = createClient(url, key, { auth: { persistSession: false } });
-  }
+  constructor(private readonly client: SupabaseClient) {}
 
   async getPool(sector: string) {
     const { data, error } = await this.client.from('donors').select('*').order('code');
@@ -108,6 +103,7 @@ export class SupabaseRepository implements Repository {
     });
     if (error) {
       if (error.message.includes('donor_unavailable')) throw new DonorUnavailableError();
+      if (error.message.includes('not_allowed')) throw new Error('Only recipient accounts can raise requests.');
       throw new Error(error.message);
     }
     return data as string;
@@ -165,12 +161,55 @@ export class SupabaseRepository implements Repository {
       p_request_donor: requestDonorId,
       p_state: state,
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.message.includes('not_allowed')) throw new Error('This donor answers from their own account.');
+      if (error.message.includes('not_open')) throw new Error('This offer has already been answered or closed.');
+      throw new Error(error.message);
+    }
     return data as RequestStatus;
   }
 
   async reset() {
     const { error } = await this.client.rpc('reset_demo');
+    if (error) throw new Error(error.message);
+  }
+
+  async donorProfile(): Promise<DonorProfile | null> {
+    const { data, error } = await this.client.rpc('donor_profile');
+    if (error) throw new Error(error.message);
+    const r = (data as Record<string, unknown>[] | null)?.[0];
+    if (!r) return null;
+    return {
+      code: String(r.code),
+      group: r.blood_group as BloodGroup,
+      sector: String(r.sector_id),
+      lastDonationDate: String(r.last_donation_date),
+      daysSinceDonation: daysSince(String(r.last_donation_date)),
+      available: Boolean(r.available),
+      accepted: Number(r.accepted_count),
+      received: Number(r.received_count),
+      onHold: Boolean(r.on_hold),
+    };
+  }
+
+  async donorOffers(): Promise<DonorOffer[]> {
+    const { data, error } = await this.client.rpc('donor_offers');
+    if (error) throw new Error(error.message);
+    return (data as Record<string, unknown>[]).map((r) => ({
+      id: String(r.request_donor_id),
+      requestCode: String(r.request_code),
+      group: r.recipient_group as BloodGroup,
+      units: Number(r.units),
+      urgency: r.urgency as Urgency,
+      sector: String(r.sector_id),
+      state: r.state as DonorState,
+      requestStatus: r.request_status as RequestStatus,
+      offeredAt: String(r.offered_at),
+    }));
+  }
+
+  async setAvailability(available: boolean) {
+    const { error } = await this.client.rpc('set_availability', { p_available: available });
     if (error) throw new Error(error.message);
   }
 }

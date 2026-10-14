@@ -1,15 +1,13 @@
-import { DEFAULT_CONFIG, NOTIFY_FACTOR } from '../engine';
+import { DEFAULT_CONFIG, NOTIFY_FACTOR } from '../../engine';
+import { PageHeader } from '../../ui/kit';
 
-export function Method() {
+export function HowItWorks() {
   return (
     <>
-      <div className="page-head">
-        <h1>How donors are chosen</h1>
-        <p>The rules behind a match, and what this demonstration does and does not claim.</p>
-      </div>
+      <PageHeader title="How donors are chosen" subtitle="The rules behind a match, and what this pilot does and does not claim." />
       <section className="card">
         <div className="card-body prose">
-          <h2 style={{ marginTop: 0 }}>1. Screening</h2>
+          <h2>1. Screening</h2>
           <p>
             A donor is removed, not scored down, if they are not blood-group compatible, are unavailable or already committed to
             another request, gave blood fewer than {DEFAULT_CONFIG.cooldownDays} days ago, live more than {DEFAULT_CONFIG.radiusKm} km
@@ -35,9 +33,9 @@ export function Method() {
           <h2>What this is not</h2>
           <p>
             All donors are synthetic. The search is exact enumeration, which is the verification method for the planned NSGA-III
-            optimiser and not a replacement for it at full scale. There are no logins and no messages are sent.
+            optimiser and not a replacement for it at full scale. Notifications are shown in the donor's app only; no SMS or email is sent.
           </p>
-          <p className="footer-note">
+          <p className="hint" style={{ marginTop: 28 }}>
             Engine <code>exact-pareto-1</code>. Source and tests are in the repository.
           </p>
         </div>
