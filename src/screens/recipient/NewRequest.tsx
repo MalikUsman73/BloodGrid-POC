@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { poolHash, SECTORS, DonorUnavailableError, type Pool } from '../data';
+import { poolHash, SECTORS, DonorUnavailableError, type Pool } from '../../data';
 import {
   BLOOD_GROUPS, DEFAULT_CONFIG, ENGINE_VERSION, URGENCIES, contactSetSize, runMatch, screenDonors,
   type BloodGroup, type MatchOutcome, type MatchRequest, type Urgency,
-} from '../engine';
-import { rememberOutcome } from '../state/outcomes';
-import { useApp } from '../state/AppContext';
-import { Funnel } from '../ui/Funnel';
-import { EmptyState, ErrorState, Loading } from '../ui/States';
+} from '../../engine';
+import { rememberOutcome } from '../../state/outcomes';
+import { useApp } from '../../state/AppContext';
+import { Funnel } from '../../ui/Funnel';
+import { Alert, Button, Field, PageHeader, Segmented, Select } from '../../ui/kit';
+import { EmptyState, ErrorState, Loading } from '../../ui/States';
 
 const LEAN: Record<Urgency, string> = {
   Routine: 'Leans toward donor recovery and conserving scarce blood groups.',
@@ -25,6 +26,7 @@ export function NewRequest() {
   const [sector, setSector] = useState('G-8');
   const [pool, setPool] = useState<Pool | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<MatchOutcome | null>(null);
 
@@ -51,7 +53,7 @@ export function NewRequest() {
 
   async function submit() {
     setBusy(true);
-    setError(null);
+    setSubmitError(null);
     setFailed(null);
     try {
       for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -78,7 +80,7 @@ export function NewRequest() {
             },
           });
           rememberOutcome(id, outcome);
-          navigate(`/requests/${id}`);
+          navigate(`/recipient/requests/${id}`);
           return;
         } catch (e) {
           // Another request claimed a donor between reading the pool and saving. Re-read and match again.
@@ -86,7 +88,7 @@ export function NewRequest() {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The request could not be saved.');
+      setSubmitError(e instanceof Error ? e.message : 'The request could not be saved.');
     } finally {
       setBusy(false);
     }
@@ -94,25 +96,21 @@ export function NewRequest() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>New blood request</h1>
-        <p>BloodGrid screens the donor pool, then chooses a set of donors to notify. The seeker never browses or picks donors.</p>
-      </div>
+      <PageHeader
+        title="New blood request"
+        subtitle="Tell us what is needed. BloodGrid screens the donor pool and notifies the best set of donors for you."
+      />
 
-      <div className="grid-2">
+      <div className="builder">
         <section className="card" aria-labelledby="req-h">
-          <div className="card-head"><h2 id="req-h">Request</h2></div>
+          <div className="card-head"><h2 id="req-h">Request details</h2></div>
           <div className="card-body">
             <div className="field">
-              <span className="label" id="g-l">Recipient blood group</span>
-              <div className="choices groups" role="group" aria-labelledby="g-l">
-                {BLOOD_GROUPS.map((g) => (
-                  <button key={g} type="button" className="choice" aria-pressed={group === g} onClick={() => setGroup(g)}>{g}</button>
-                ))}
-              </div>
+              <span className="label" id="g-l">Blood group needed</span>
+              <Segmented label="Blood group needed" value={group} options={BLOOD_GROUPS} onChange={setGroup} />
             </div>
             <div className="field">
-              <span className="label" id="u-l">Units needed</span>
+              <span className="label" id="u-l">Units</span>
               <div className="stepper" role="group" aria-labelledby="u-l">
                 <button type="button" aria-label="Fewer units" disabled={units <= 1} onClick={() => setUnits(units - 1)}>−</button>
                 <output aria-live="polite">{units}</output>
@@ -120,24 +118,23 @@ export function NewRequest() {
               </div>
             </div>
             <div className="field">
-              <span className="label" id="urg-l">Urgency</span>
-              <div className="choices urgency" role="group" aria-labelledby="urg-l">
-                {URGENCIES.map((u) => (
-                  <button key={u} type="button" className="choice" aria-pressed={urgency === u} onClick={() => setUrgency(u)}>{u}</button>
-                ))}
-              </div>
-              <span className="hint">{LEAN[urgency]}</span>
+              <span className="label">Urgency</span>
+              <Segmented label="Urgency" value={urgency} options={URGENCIES} onChange={setUrgency} columns={3} />
+              <p className="hint">{LEAN[urgency]}</p>
             </div>
-            <div className="field">
-              <label className="label" htmlFor="sector">Sector of the hospital</label>
-              <select id="sector" value={sector} onChange={(e) => setSector(e.target.value)}>
+            <Field label="Hospital sector" htmlFor="sector">
+              <Select id="sector" value={sector} onChange={(e) => setSector(e.target.value)} style={{ maxWidth: 200 }}>
                 {SECTORS.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
-              </select>
-            </div>
+              </Select>
+            </Field>
+
+            {submitError && (
+              <div style={{ marginTop: 18 }}><Alert tone="bad" title="Could not send the request">{submitError}</Alert></div>
+            )}
             <div className="form-actions">
-              <button className="btn primary" onClick={() => void submit()} disabled={busy || !pool}>
-                {busy ? 'Matching…' : 'Find donors'}
-              </button>
+              <Button variant="primary" size="lg" onClick={() => void submit()} loading={busy} disabled={!pool}>
+                {busy ? 'Finding donors' : 'Find donors'}
+              </Button>
               <span className="hint">Saves the request and notifies the selected donors.</span>
             </div>
           </div>
@@ -145,8 +142,8 @@ export function NewRequest() {
 
         <section className="card" aria-labelledby="prev-h">
           <div className="card-head">
-            <h2 id="prev-h">Before you submit</h2>
-            <span className="meta">Updates as you change the request</span>
+            <h2 id="prev-h">Live screening preview</h2>
+            <span className="sub end">Updates as you edit</span>
           </div>
           {error ? (
             <ErrorState message={error} onRetry={() => void load()} />
@@ -156,18 +153,18 @@ export function NewRequest() {
             <>
               <div className="facts">
                 <div className="fact"><div className="v num">{k}</div><div className="l">Donors to notify</div></div>
-                <div className="fact"><div className="v num">{screening.eligible.length}</div><div className="l">Pass every screening rule</div></div>
-                <div className="fact"><div className="v num">{pool.donors.length}</div><div className="l">In the donor pool</div></div>
+                <div className="fact"><div className="v num">{screening.eligible.length}</div><div className="l">Pass every rule</div></div>
+                <div className="fact"><div className="v num">{pool.donors.length}</div><div className="l">In the pool</div></div>
               </div>
               <div className="card-body">
                 {screening.eligible.length === 0 && (
-                  <div className="banner bad" role="status">
-                    <strong>No donor can be notified for this request.</strong> See where the pool is lost below.
+                  <div style={{ marginBottom: 16 }}>
+                    <Alert tone="bad" title="No donor can be notified for this request">See where the pool is lost below, or try another sector.</Alert>
                   </div>
                 )}
                 {screening.eligible.length > 0 && screening.eligible.length < k && (
-                  <div className="banner warn" role="status">
-                    <strong>Only {screening.eligible.length} eligible.</strong> Every eligible donor would be notified.
+                  <div style={{ marginBottom: 16 }}>
+                    <Alert tone="warn" title={`Only ${screening.eligible.length} eligible`}>Every eligible donor would be notified.</Alert>
                   </div>
                 )}
                 <Funnel stages={screening.stages} poolSize={pool.donors.length} />
@@ -182,7 +179,7 @@ export function NewRequest() {
           <EmptyState title={failed.status === 'empty-pool' ? 'The donor pool is empty' : 'No eligible donors'}>
             {failed.status === 'empty-pool'
               ? 'There are no donors on record, so nobody can be notified.'
-              : `No donor passes every rule for a ${failed.request.recipientGroup} request in ${failed.request.sector}. Nothing was saved and nobody was contacted. Try another sector, or check the screening rules above.`}
+              : `No donor passes every rule for a ${failed.request.recipientGroup} request in ${failed.request.sector}. Nothing was saved and nobody was contacted.`}
           </EmptyState>
         </section>
       )}

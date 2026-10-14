@@ -1,9 +1,12 @@
 import type { BloodGroup, Donor, ObjectiveValues, Urgency } from '../engine';
+import { daysSince } from './dates';
 import { sectorDistanceKm } from './sectors';
 import { generateDonors, type DonorRow } from './synthetic';
 import {
   DonorUnavailableError,
   type AuditRow,
+  type DonorOffer,
+  type DonorProfile,
   type DonorState,
   type Repository,
   type RequestDetail,
@@ -11,39 +14,73 @@ import {
   type RequestStatus,
 } from './types';
 
+type Held = DonorRow & { heldBy: string | null; lastDonationDate: string };
+
 interface LocalRequest extends RequestRow {
+  requesterId: string | null;
+  archived: boolean;
   rows: { id: string; donorId: string; rank: number; state: DonorState; p: number; cost: number }[];
   audit: AuditRow;
 }
 
+export interface LocalDonorSeed {
+  group: BloodGroup;
+  sector: string;
+  /** ISO date; absent means the donor has never given, so they are eligible straight away. */
+  lastDonation?: string;
+}
+
+const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+
 /**
- * In-memory stand-in used when the database cannot be reached, so a demo never dies on
- * a network problem. State lasts until the page is reloaded. It follows the same rules
- * as the database functions.
+ * In-memory stand-in used when no database is configured or it cannot be reached, so a demo never
+ * dies on a network problem. State lasts until the page is reloaded. It follows the same rules as the
+ * database: recipients raise and read their own requests, donors answer for themselves, and a recipient
+ * may only simulate an answer for a pool donor who has no account.
  */
 export class LocalRepository implements Repository {
   readonly source = 'local' as const;
-  private base: DonorRow[] = generateDonors();
-  private donors = new Map<string, DonorRow & { heldBy: string | null }>();
+  private donors = new Map<string, Held>();
   private requests: LocalRequest[] = [];
+  private accounts = new Map<string, string>(); // user id -> donor code
+  private user: string | null = null;
   private seq = 1001;
+  private donorSeq = 1001;
 
   constructor() {
-    this.resetDonors();
+    for (const d of generateDonors()) {
+      this.donors.set(d.code, { ...d, heldBy: null, lastDonationDate: isoDaysAgo(d.daysSinceDonation) });
+    }
   }
 
-  private resetDonors() {
-    this.donors = new Map(this.base.map((d) => [d.code, { ...d, heldBy: null }]));
+  /** Who is signed in. The auth service keeps this in step. */
+  setUser(userId: string | null) {
+    this.user = userId;
   }
 
-  private toDonor(row: DonorRow & { heldBy: string | null }, sector: string): Donor {
+  /** Adds a signed-up donor to the pool and returns their donor code. Idempotent per user. */
+  registerDonor(userId: string, seed: LocalDonorSeed): string {
+    const existing = this.accounts.get(userId);
+    if (existing) return existing;
+    const code = `D-${this.donorSeq}`;
+    this.donorSeq += 1;
+    const last = seed.lastDonation ?? isoDaysAgo(365);
+    this.donors.set(code, {
+      code, group: seed.group, sector: seed.sector, daysSinceDonation: daysSince(last), available: true,
+      accepted: 0, received: 0, contactsLast30d: 0, heldBy: null, lastDonationDate: last,
+    });
+    this.accounts.set(userId, code);
+    return code;
+  }
+
+  private toDonor(row: Held, sector: string): Donor {
     return {
       id: row.code,
       code: row.code,
       group: row.group,
       sector: row.sector,
       distanceKm: sectorDistanceKm(row.sector, sector),
-      daysSinceDonation: row.daysSinceDonation,
+      daysSinceDonation: daysSince(row.lastDonationDate),
       available: row.available,
       heldBy: row.heldBy,
       contactsLast30d: row.contactsLast30d,
@@ -52,13 +89,24 @@ export class LocalRepository implements Repository {
     };
   }
 
+  private requireRecipient(): string {
+    if (!this.user || this.accounts.has(this.user)) throw new Error('Only recipient accounts can raise requests.');
+    return this.user;
+  }
+
+  private mine(): LocalRequest[] {
+    return this.requests.filter((r) => r.requesterId === this.user && !r.archived);
+  }
+
   async getPool(sector: string) {
     return { donors: [...this.donors.values()].map((d) => this.toDonor(d, sector)), source: this.source };
   }
 
   async createRequest({ request, donors, audit }: Parameters<Repository['createRequest']>[0]) {
+    const requesterId = this.requireRecipient();
     for (const d of donors) {
-      if (this.donors.get(d.donorId)?.heldBy) throw new DonorUnavailableError();
+      const row = this.donors.get(d.donorId);
+      if (!row || row.heldBy || !row.available) throw new DonorUnavailableError();
     }
     const id = `local-${this.seq}`;
     const code = `BR-${this.seq}`;
@@ -66,6 +114,8 @@ export class LocalRepository implements Repository {
     this.requests.unshift({
       id,
       code,
+      requesterId,
+      archived: false,
       recipientGroup: request.recipientGroup as BloodGroup,
       units: request.units,
       urgency: request.urgency as Urgency,
@@ -97,34 +147,40 @@ export class LocalRepository implements Repository {
   }
 
   async listRequests() {
-    return this.requests.map((r) => ({
+    return this.mine().map((r) => ({
       id: r.id, code: r.code, recipientGroup: r.recipientGroup, units: r.units, urgency: r.urgency,
       sector: r.sector, k: r.k, status: r.status, createdAt: r.createdAt,
     }));
   }
 
   async getRequest(id: string): Promise<RequestDetail | null> {
-    const r = this.requests.find((x) => x.id === id);
+    const r = this.mine().find((x) => x.id === id);
     if (!r) return null;
-    const { rows, audit, ...request } = r;
     return {
-      ...request,
-      audit,
-      donors: rows.map((row) => ({
+      id: r.id, code: r.code, recipientGroup: r.recipientGroup, units: r.units, urgency: r.urgency,
+      sector: r.sector, k: r.k, status: r.status, createdAt: r.createdAt,
+      audit: r.audit,
+      donors: r.rows.map((row) => ({
         id: row.id,
         rank: row.rank,
         state: row.state,
         p: row.p,
         cost: row.cost,
-        donor: this.toDonor(this.donors.get(row.donorId) as DonorRow & { heldBy: string | null }, r.sector),
+        donor: this.toDonor(this.donors.get(row.donorId) as Held, r.sector),
       })),
     };
   }
 
   async respond(requestDonorId: string, state: 'Accepted' | 'Declined'): Promise<RequestStatus> {
+    if (!this.user) throw new Error('Sign in to respond.');
     const r = this.requests.find((x) => requestDonorId.startsWith(`${x.id}:`));
     const row = r?.rows.find((x) => x.id === requestDonorId);
-    if (!r || !row || row.state !== 'Sent') throw new Error('not_open');
+    if (!r || !row || row.state !== 'Sent') throw new Error('This offer has already been answered or closed.');
+
+    const own = this.accounts.get(this.user) === row.donorId;
+    const claimed = [...this.accounts.values()].includes(row.donorId);
+    if (!own && !(r.requesterId === this.user && !claimed)) throw new Error('This donor answers from their own account.');
+
     row.state = state;
     const donor = this.donors.get(row.donorId);
     if (donor) {
@@ -145,7 +201,50 @@ export class LocalRepository implements Repository {
   }
 
   async reset() {
-    this.requests = [];
-    this.resetDonors();
+    if (!this.user) throw new Error('Sign in first.');
+    for (const r of this.mine()) {
+      for (const row of r.rows) {
+        const d = this.donors.get(row.donorId);
+        if (d && d.heldBy === r.id) d.heldBy = null;
+      }
+      r.archived = true;
+    }
+  }
+
+  private ownDonor(): Held | null {
+    const code = this.user ? this.accounts.get(this.user) : undefined;
+    return code ? (this.donors.get(code) ?? null) : null;
+  }
+
+  async donorProfile(): Promise<DonorProfile | null> {
+    const d = this.ownDonor();
+    if (!d) return null;
+    return {
+      code: d.code, group: d.group, sector: d.sector, lastDonationDate: d.lastDonationDate,
+      daysSinceDonation: daysSince(d.lastDonationDate), available: d.available, accepted: d.accepted,
+      received: d.received, onHold: d.heldBy !== null,
+    };
+  }
+
+  async donorOffers(): Promise<DonorOffer[]> {
+    const d = this.ownDonor();
+    if (!d) return [];
+    const out: DonorOffer[] = [];
+    for (const r of this.requests) {
+      if (r.archived) continue;
+      const row = r.rows.find((x) => x.donorId === d.code);
+      if (!row) continue;
+      out.push({
+        id: row.id, requestCode: r.code, group: r.recipientGroup, units: r.units, urgency: r.urgency,
+        sector: r.sector, state: row.state, requestStatus: r.status, offeredAt: r.createdAt,
+      });
+    }
+    return out;
+  }
+
+  async setAvailability(available: boolean) {
+    const d = this.ownDonor();
+    if (!d) throw new Error('Only donor accounts have availability.');
+    d.available = available;
   }
 }
