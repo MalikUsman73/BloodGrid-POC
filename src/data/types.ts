@@ -46,6 +46,32 @@ export interface RequestDetail extends RequestRow {
   audit: AuditRow | null;
 }
 
+/** A donor's own record, as the donor sees it. Never includes anyone else's details. */
+export interface DonorProfile {
+  code: string;
+  group: BloodGroup;
+  sector: string;
+  lastDonationDate: string;
+  daysSinceDonation: number;
+  available: boolean;
+  accepted: number;
+  received: number;
+  onHold: boolean;
+}
+
+/** A request that asked this donor to help. The recipient's identity is never included. */
+export interface DonorOffer {
+  id: string;
+  requestCode: string;
+  group: BloodGroup;
+  units: number;
+  urgency: Urgency;
+  sector: string;
+  state: DonorState;
+  requestStatus: RequestStatus;
+  offeredAt: string;
+}
+
 export interface Repository {
   readonly source: DataSource;
   getPool(sector: string): Promise<Pool>;
@@ -57,7 +83,11 @@ export interface Repository {
   listRequests(): Promise<RequestRow[]>;
   getRequest(id: string): Promise<RequestDetail | null>;
   respond(requestDonorId: string, state: 'Accepted' | 'Declined'): Promise<RequestStatus>;
+  /** Archives the caller's own requests and releases the donors they held. */
   reset(): Promise<void>;
+  donorProfile(): Promise<DonorProfile | null>;
+  donorOffers(): Promise<DonorOffer[]>;
+  setAvailability(available: boolean): Promise<void>;
 }
 
 export class DonorUnavailableError extends Error {
