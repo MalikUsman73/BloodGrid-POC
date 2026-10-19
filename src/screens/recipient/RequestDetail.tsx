@@ -211,6 +211,12 @@ function Screening({ outcome }: { outcome: MatchOutcome }) {
         <dt>Contact set size</dt><dd className="num">{outcome.k}</dd>
         <dt>Sets evaluated</dt><dd className="num">{outcome.evaluated.toLocaleString()}</dd>
         <dt>Non-dominated</dt><dd className="num">{outcome.front.length}</dd>
+        {outcome.algorithm === 'nsga3' && outcome.generations > 0 && (
+          <><dt>Generations</dt><dd className="num">{outcome.generations}</dd></>
+        )}
+        {outcome.igd !== null && (
+          <><dt>Gap to exact front</dt><dd className="num">{outcome.igd === 0 ? 'none' : outcome.igd.toFixed(3)}</dd></>
+        )}
         {outcome.warnings.map((w) => (<span key={w} className="hint kv-wide">{w}</span>))}
       </dl>
     </div>

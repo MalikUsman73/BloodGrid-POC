@@ -80,12 +80,18 @@ describe('properties over random pools', () => {
 });
 
 describe('method comparison', () => {
-  it('never marks the chosen Pareto set as beaten, and flags a baseline that is', () => {
+  it('never marks the chosen set as beaten, and flags a baseline that is', () => {
     const pool = Array.from({ length: 40 }, (_, i) =>
       donor({ id: `c${String(i).padStart(2, '0')}`, group: i % 5 === 0 ? 'O-' : 'O+', distanceKm: 1 + (i % 11), daysSinceDonation: 90 + ((i * 37) % 300), accepted: i % 7, received: 8 }),
     );
     const out = runMatch(pool, request({ units: 2, urgency: 'Urgent' }));
-    expect(out.comparison.map((c) => c.algorithm)).toEqual(['pareto', 'weighted', 'greedy', 'nearest']);
+    expect(out.algorithm).toBe('nsga3');
+    expect(out.comparison.map((c) => c.algorithm)).toEqual(['nsga3', 'pareto', 'weighted', 'greedy', 'nearest']);
     expect(out.comparison[0].dominated).toBe(false);
+    expect(out.igd).toBe(0);
+
+    const exact = runMatch(pool, request({ units: 2, urgency: 'Urgent' }), undefined, {}, { algorithm: 'pareto' });
+    expect(exact.comparison.map((c) => c.algorithm)).toEqual(['pareto', 'weighted', 'greedy', 'nearest']);
+    expect(exact.comparison[0].dominated).toBe(false);
   });
 });

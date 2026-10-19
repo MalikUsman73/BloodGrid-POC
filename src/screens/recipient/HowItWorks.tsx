@@ -26,17 +26,18 @@ export function HowItWorks() {
           </p>
           <h2>4. Choosing a set</h2>
           <p>
-            Every possible contact set is evaluated and the ones that no other set beats on all four objectives are kept. One is
-            then chosen with a weighting that depends on urgency. If the pool is too large to enumerate, the search covers the
-            best-scoring donors and the result says so.
+            NSGA-III searches the possible contact sets and keeps the ones that no other set beats on all four objectives. One is
+            then chosen with a weighting that depends on urgency. Where the pool is small enough to check every set, an exact search
+            runs alongside and the page shows how closely the two agree. If the search runs out of time, the nearest-first greedy set
+            is used and the result says so.
           </p>
           <h2>What this is not</h2>
           <p>
-            All donors are synthetic. The search is exact enumeration, which is the verification method for the planned NSGA-III
-            optimiser and not a replacement for it at full scale. Notifications are shown in the donor's app only; no SMS or email is sent.
+            All donors are synthetic. NSGA-III is not guaranteed to find every best set on a large pool; the exact search is the
+            check on small ones. Notifications are shown in the donor's app only; no SMS or email is sent.
           </p>
           <p className="hint" style={{ marginTop: 28 }}>
-            Engine <code>exact-pareto-1</code>. Source and tests are in the repository.
+            Engine <code>nsga3-1</code>. Source and tests are in the repository.
           </p>
         </div>
       </section>

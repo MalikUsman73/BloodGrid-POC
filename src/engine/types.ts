@@ -69,4 +69,4 @@ export interface ObjectiveValues {
 
 export type ObjectiveKey = keyof ObjectiveValues;
 
-export type AlgorithmId = 'pareto' | 'weighted' | 'greedy' | 'nearest';
+export type AlgorithmId = 'nsga3' | 'pareto' | 'weighted' | 'greedy' | 'nearest';
