@@ -3,7 +3,8 @@ import { LocalAuth } from '../src/auth/localAuth';
 import { AuthError } from '../src/auth/types';
 import { LocalRepository } from '../src/data/localRepository';
 import { DonorUnavailableError } from '../src/data';
-import type { ObjectiveValues } from '../src/engine';
+import { DEFAULT_CONFIG, screenDonors, type ObjectiveValues } from '../src/engine';
+import { hashFile } from '../src/workflow';
 
 class MemoryStorage implements Storage {
   private m = new Map<string, string>();
@@ -33,12 +34,33 @@ beforeEach(() => {
 const donorInput = { role: 'donor' as const, email: 'd@example.com', password: 'secret123', fullName: 'Dana Donor', donor: { bloodGroup: 'A+' as const, sector: 'G-8' } };
 const recipientInput = { role: 'recipient' as const, email: 'r@example.com', password: 'secret123', fullName: 'Rae Recipient' };
 
+let mr = 100;
+
+/** Raise a verified A+ request at a G-8 hospital and notify the given donors. */
 async function raise(donorCodes: string[], units = 1) {
-  return repo.createRequest({
-    request: { recipientGroup: 'A+', units, urgency: 'Urgent', sector: 'G-8', k: donorCodes.length },
-    donors: donorCodes.map((c, i) => ({ donorId: c, rank: i + 1, p: 0.5, cost: 0 })),
-    audit,
+  mr += 1;
+  const patient = await repo.savePatient({ fullName: 'Pat Ient', mrNumber: `CGH-${mr}`, hospitalId: 'H-CGH', bloodGroup: 'A+', birthYear: 1980 });
+  const file = new Blob([`prescription ${mr}`], { type: 'application/pdf' });
+  const { id } = await repo.submitRequest({
+    patientId: patient.id,
+    file,
+    units,
+    urgency: 'Urgent',
+    prescription: {
+      doctorName: 'Dr. Sana Malik', pmdcNumber: '10234-P', hospitalId: 'H-CGH', issuedOn: new Date().toISOString().slice(0, 10),
+      bloodGroup: 'A+', unitsPrescribed: units, diagnosis: '',
+      document: { name: 'rx.pdf', type: 'application/pdf', size: file.size, hash: await hashFile(file) },
+    },
   });
+  await repo.recordRound({ requestId: id, donors: donorCodes.map((c, i) => ({ donorId: c, rank: i + 1, p: 0.5, cost: 0 })), audit });
+  return id;
+}
+
+/** Pool donors who pass every rule for an A+ request in G-8. */
+async function eligible(n: number): Promise<string[]> {
+  const pool = await repo.getPool('G-8');
+  const ids = screenDonors(pool.donors, { recipientGroup: 'A+', units: 1, urgency: 'Urgent', sector: 'G-8' }, DEFAULT_CONFIG).eligible.map((d) => d.id);
+  return ids.filter((id) => !id.startsWith('D-1')).slice(0, n);
 }
 
 describe('demo accounts', () => {
@@ -90,7 +112,7 @@ describe('roles', () => {
 
   it('shows a recipient only their own requests', async () => {
     await auth.signUp(recipientInput);
-    const id = await raise(['D-0001']);
+    const id = await raise(await eligible(1));
     expect((await repo.listRequests()).map((r) => r.id)).toEqual([id]);
     await auth.signOut();
     await auth.signUp({ ...recipientInput, email: 'other@example.com' });
@@ -102,12 +124,12 @@ describe('roles', () => {
     await auth.signUp(donorInput);
     await auth.signOut();
     await auth.signUp(recipientInput);
-    await raise(['D-1001', 'D-0002']);
+    await raise(['D-1001', ...(await eligible(1))]);
     await auth.signOut();
     await auth.signIn(donorInput.email, donorInput.password);
     const offers = await repo.donorOffers();
     expect(offers).toHaveLength(1);
-    expect(offers[0]).toMatchObject({ requestCode: 'BR-1001', state: 'Sent', units: 1 });
+    expect(offers[0]).toMatchObject({ requestCode: 'BR-1001', state: 'Sent', units: 1, hospitalId: 'H-CGH' });
     expect(JSON.stringify(offers)).not.toContain('Rae');
   });
 });
@@ -117,10 +139,11 @@ describe('responses', () => {
     await auth.signUp(donorInput);
     await auth.signOut();
     await auth.signUp(recipientInput);
-    const id = await raise(['D-1001', 'D-0002'], 1);
+    const [other] = await eligible(1);
+    const id = await raise(['D-1001', other], 1);
     const detail = await repo.getRequest(id);
     const own = detail!.donors.find((d) => d.donor.code === 'D-1001')!.id;
-    const pool = detail!.donors.find((d) => d.donor.code === 'D-0002')!.id;
+    const pool = detail!.donors.find((d) => d.donor.code === other)!.id;
     return { id, own, pool };
   }
 
@@ -164,18 +187,20 @@ describe('availability and holds', () => {
     await expect(raise(['D-1001'])).rejects.toBeInstanceOf(DonorUnavailableError);
   });
 
-  it('does not let a donor claim a donor already held by another request', async () => {
+  it('does not let a request claim a donor already held by another request', async () => {
     await auth.signUp(recipientInput);
-    await raise(['D-0001']);
-    await expect(raise(['D-0001'])).rejects.toBeInstanceOf(DonorUnavailableError);
+    const [d] = await eligible(1);
+    await raise([d]);
+    await expect(raise([d])).rejects.toBeInstanceOf(DonorUnavailableError);
   });
 
   it('clearing requests releases the donors they held', async () => {
     await auth.signUp(recipientInput);
-    await raise(['D-0001']);
+    const [d] = await eligible(1);
+    await raise([d]);
     await repo.reset();
     expect(await repo.listRequests()).toEqual([]);
-    await expect(raise(['D-0001'])).resolves.toMatch(/^local-/);
+    await expect(raise([d])).resolves.toMatch(/^local-/);
   });
 
   it('only lets donors change availability', async () => {

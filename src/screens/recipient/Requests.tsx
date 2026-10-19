@@ -8,12 +8,13 @@ import { IconPlus } from '../../ui/icons';
 import { EmptyState, ErrorState, Loading } from '../../ui/States';
 import { useToast } from '../../ui/Toast';
 
-type Filter = 'all' | 'open' | 'confirmed' | 'unfilled';
+type Filter = 'all' | 'open' | 'confirmed' | 'attention' | 'closed';
 const FILTERS: { id: Filter; label: string; match: (r: RequestRow) => boolean }[] = [
   { id: 'all', label: 'All', match: () => true },
-  { id: 'open', label: 'Open', match: (r) => r.status === 'Awaiting response' },
+  { id: 'open', label: 'Waiting for donors', match: (r) => r.status === 'Awaiting response' },
+  { id: 'attention', label: 'Not filled', match: (r) => r.status === 'Unfilled' },
   { id: 'confirmed', label: 'Confirmed', match: (r) => r.status === 'Confirmed' },
-  { id: 'unfilled', label: 'Not filled', match: (r) => r.status === 'Unfilled' },
+  { id: 'closed', label: 'Closed', match: (r) => r.status === 'Cancelled' },
 ];
 
 export function RequestTable({ rows }: { rows: RequestRow[] }) {
@@ -23,7 +24,7 @@ export function RequestTable({ rows }: { rows: RequestRow[] }) {
       <table className="cards">
         <thead>
           <tr>
-            <th>Request</th><th>Needs</th><th>Urgency</th><th>Sector</th><th className="r">Notified</th><th>Status</th><th>Raised</th>
+            <th>Request</th><th>Patient</th><th>Needs</th><th>Urgency</th><th className="r">Round</th><th className="r">Notified</th><th>Status</th><th>Raised</th>
           </tr>
         </thead>
         <tbody>
@@ -32,9 +33,10 @@ export function RequestTable({ rows }: { rows: RequestRow[] }) {
               <td className="first mono" data-label="Request">
                 <Link to={`/recipient/requests/${r.id}`} onClick={(e) => e.stopPropagation()}>{r.code}</Link>
               </td>
+              <td data-label="Patient">{r.patientName}{r.flags.some((f) => f.severity === 'high') && <span className="hint"> · flagged</span>}</td>
               <td data-label="Needs"><span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><GroupChip group={r.recipientGroup} /><span className="muted">{r.units} {r.units === 1 ? 'unit' : 'units'}</span></span></td>
               <td data-label="Urgency">{r.urgency}</td>
-              <td data-label="Sector">{r.sector}</td>
+              <td className="r num" data-label="Round">{r.round || '–'}</td>
               <td className="r num" data-label="Notified">{r.k}</td>
               <td data-label="Status"><Badge tone={requestTone(r.status)}>{STATUS_LABEL[r.status] ?? r.status}</Badge></td>
               <td className="muted num nowrap" data-label="Raised">{formatDate(r.createdAt)}</td>
@@ -104,7 +106,7 @@ export function Requests() {
           <Loading />
         ) : rows.length === 0 ? (
           <EmptyState title="No requests yet" action={<Link className="btn primary" to="/recipient/new">Raise a request</Link>}>
-            When you raise one, you will see the donors chosen and how each responds.
+            When you raise one, you will see the checks on it, the donors asked and how each responds.
           </EmptyState>
         ) : visible.length === 0 ? (
           <EmptyState title="Nothing in this view">No requests match this filter.</EmptyState>
@@ -115,7 +117,7 @@ export function Requests() {
       {rows && rows.length > 0 && (
         <p style={{ marginTop: 16 }}>
           <Button variant="ghost" size="sm" onClick={() => void reset()} loading={resetting}>Clear my requests</Button>
-          <span className="hint" style={{ marginLeft: 8 }}>Archives them and releases any donors still held.</span>
+          <span className="hint" style={{ marginLeft: 8 }}>Archives them and releases any donors still held. Patient records are kept.</span>
         </p>
       )}
     </>

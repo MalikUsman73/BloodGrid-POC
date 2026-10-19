@@ -11,12 +11,13 @@ import { Signup } from './screens/public/Signup';
 import { Dashboard } from './screens/recipient/Dashboard';
 import { HowItWorks } from './screens/recipient/HowItWorks';
 import { NewRequest } from './screens/recipient/NewRequest';
+import { Patients } from './screens/recipient/Patients';
 import { RequestDetail } from './screens/recipient/RequestDetail';
 import { Requests } from './screens/recipient/Requests';
 import { AppProvider, useApp } from './state/AppContext';
 import { SessionProvider, useSession } from './state/Session';
 import { AppShell, type NavItem } from './ui/AppShell';
-import { IconBook, IconHome, IconList, IconPlus, IconUser } from './ui/icons';
+import { IconBook, IconHome, IconList, IconPlus, IconUser, IconUsers } from './ui/icons';
 import { ToastProvider } from './ui/Toast';
 
 const DONOR_NAV: NavItem[] = [
@@ -29,6 +30,7 @@ const RECIPIENT_NAV: NavItem[] = [
   { to: '/recipient', label: 'Overview', icon: IconHome, end: true },
   { to: '/recipient/new', label: 'New request', icon: IconPlus },
   { to: '/recipient/requests', label: 'Requests', icon: IconList },
+  { to: '/recipient/patients', label: 'Patients', icon: IconUsers },
   { to: '/recipient/how-it-works', label: 'How it works', icon: IconBook },
 ];
 
@@ -70,6 +72,7 @@ export default function App() {
                   <Route path="new" element={<NewRequest />} />
                   <Route path="requests" element={<Requests />} />
                   <Route path="requests/:id" element={<RequestDetail />} />
+                  <Route path="patients" element={<Patients />} />
                   <Route path="how-it-works" element={<HowItWorks />} />
                 </Route>
               </Route>

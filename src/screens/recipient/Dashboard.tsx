@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { RequestRow } from '../../data';
 import { useApp } from '../../state/AppContext';
 import { useSession } from '../../state/Session';
-import { Button, PageHeader, Stat } from '../../ui/kit';
+import { Alert, Button, PageHeader, Stat } from '../../ui/kit';
 import { IconActivity, IconCheck, IconClock, IconPlus, IconUsers } from '../../ui/icons';
 import { EmptyState, ErrorState, Loading } from '../../ui/States';
 import { RequestTable } from './Requests';
@@ -28,25 +28,35 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, repo]);
 
-  const open = rows?.filter((r) => r.status === 'Awaiting response').length ?? 0;
-  const confirmed = rows?.filter((r) => r.status === 'Confirmed').length ?? 0;
-  const notified = rows?.reduce((n, r) => n + r.k, 0) ?? 0;
+  const count = (s: RequestRow['status']) => rows?.filter((r) => r.status === s).length ?? 0;
+  const attention = rows?.filter((r) => r.status === 'Unfilled') ?? [];
   const first = profile?.fullName.split(' ')[0] ?? '';
 
   return (
     <>
       <PageHeader
         title={`Welcome, ${first}`}
-        subtitle="Raise a request and follow how donors respond."
+        subtitle="Raise a request with the doctor’s prescription, and follow the donor responses."
         actions={<Link className="btn primary" to="/recipient/new"><IconPlus />New request</Link>}
       />
 
       <div className="stats" style={{ marginBottom: 20 }}>
-        <Stat label="Requests raised" value={rows?.length ?? '–'} icon={<IconActivity />} />
-        <Stat label="Waiting for donors" value={rows ? open : '–'} icon={<IconClock />} />
-        <Stat label="Confirmed" value={rows ? confirmed : '–'} icon={<IconCheck />} />
-        <Stat label="Donors notified" value={rows ? notified : '–'} icon={<IconUsers />} />
+        <Stat label="Needs another round" value={rows ? count('Unfilled') : '–'} icon={<IconActivity />} />
+        <Stat label="Waiting for donors" value={rows ? count('Awaiting response') : '–'} icon={<IconClock />} />
+        <Stat label="Confirmed" value={rows ? count('Confirmed') : '–'} icon={<IconCheck />} />
+        <Stat label="Donors notified" value={rows ? rows.reduce((n, r) => n + r.k, 0) : '–'} icon={<IconUsers />} />
       </div>
+
+      {attention.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <Alert tone="warn" title={`${attention.length === 1 ? 'One request needs' : `${attention.length} requests need`} another round`}>
+            {attention.map((r, i) => (
+              <span key={r.id}>{i > 0 && ', '}<Link to={`/recipient/requests/${r.id}`}>{r.code}</Link></span>
+            ))}{' '}
+            did not get enough donors in time. Open it to search wider.
+          </Alert>
+        </div>
+      )}
 
       <section className="card">
         <div className="card-head">
@@ -59,7 +69,7 @@ export function Dashboard() {
           <Loading />
         ) : rows.length === 0 ? (
           <EmptyState title="No requests yet" action={<Link className="btn primary" to="/recipient/new">Raise your first request</Link>}>
-            Choose the blood group, units and urgency. BloodGrid does the rest.
+            Add the patient, attach the prescription, and choose units and urgency. BloodGrid checks the request and asks donors near the hospital.
           </EmptyState>
         ) : (
           <RequestTable rows={rows.slice(0, 5)} />

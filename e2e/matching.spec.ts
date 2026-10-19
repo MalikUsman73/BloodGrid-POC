@@ -26,20 +26,57 @@ test('sign-up validates before it submits', async ({ page }) => {
   await expect(page).toHaveURL(/#\/signup/);
 });
 
-test('a recipient signs up, raises a request and gets a screened, ranked set of donors', async ({ page }) => {
-  await signUpRecipient(page, 'recipient@example.com');
+async function raiseRequest(page: Page, opts: { mr: string; file: string; urgency: 'Routine' | 'Urgent' | 'Critical' }) {
   await page.goto('/#/recipient/new');
   await expect(page.getByRole('heading', { name: 'New blood request' })).toBeVisible();
+  await page.locator('#patientPick').selectOption('new');
+  await page.getByLabel('Full name').fill('Ali Raza');
+  await page.getByLabel('Hospital record number').fill(opts.mr);
+  await page.getByLabel('Hospital', { exact: true }).selectOption({ label: 'Capital General Hospital (G-8)' });
+  await page.getByLabel('Year of birth').fill('1980');
+  await page.getByRole('group', { name: 'Patient’s blood group' }).getByRole('button', { name: 'A+', exact: true }).click();
+  await page.getByLabel('Prescribing doctor').fill('Dr. Sana Malik');
+  await page.getByLabel('PMDC number').fill('10234-P');
+  await page.getByLabel('Prescription or requisition form').setInputFiles({
+    name: 'rx.pdf', mimeType: 'application/pdf', buffer: Buffer.from(opts.file),
+  });
+  await page.getByRole('button', { name: opts.urgency, exact: true }).click();
+  await page.getByRole('button', { name: 'Submit request' }).click();
+}
 
-  await page.getByRole('button', { name: 'A+', exact: true }).click();
-  await page.getByRole('button', { name: 'Urgent', exact: true }).click();
-  await page.getByRole('button', { name: 'Find donors' }).click();
+test('a recipient raises a verified request, donors accept, and the recipient confirms and says thanks', async ({ page }) => {
+  await signUpRecipient(page, 'recipient@example.com');
+  await raiseRequest(page, { mr: 'CGH-9001', file: 'prescription one', urgency: 'Urgent' });
   await expect(page).toHaveURL(/#\/recipient\/requests\/.+/);
-  await expect(page.getByRole('tab', { name: 'Selected donors' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Donors' })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible();
+  await expect(page.getByText('Unverified request')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Simulate accept' }).first().click();
-  await expect(page.getByText('Accepted').first()).toBeVisible();
+  await expect(page.getByText('Confirm who came')).toBeVisible();
+  await page.getByLabel(/Thank-you note for donor/).fill('Thank you, you saved my father.');
+  await page.getByRole('button', { name: 'Donated', exact: true }).click();
+  await expect(page.getByText('Confirm who came')).toHaveCount(0);
+  await expect(page.getByText('Donated').first()).toBeVisible();
+});
+
+test('a critical request also shows the nearest registered blood banks', async ({ page }) => {
+  await signUpRecipient(page, 'critical@example.com');
+  await raiseRequest(page, { mr: 'CGH-9002', file: 'prescription two', urgency: 'Critical' });
+  await expect(page).toHaveURL(/#\/recipient\/requests\/.+/);
+  await expect(page.getByText('you can also contact a blood bank directly')).toBeVisible();
+});
+
+test('a prescription file used before is refused, and nothing is saved', async ({ page }) => {
+  await signUpRecipient(page, 'reuse@example.com');
+  await raiseRequest(page, { mr: 'CGH-9003', file: 'the same scan', urgency: 'Routine' });
+  await expect(page).toHaveURL(/#\/recipient\/requests\/.+/);
+
+  await raiseRequest(page, { mr: 'CGH-9004', file: 'the same scan', urgency: 'Routine' });
+  await expect(page.getByText('BloodGrid could not verify this request')).toBeVisible();
+  await expect(page).toHaveURL(/#\/recipient\/new/);
+  await page.goto('/#/recipient/requests');
+  await expect(page.locator('tbody tr')).toHaveCount(1);
 });
 
 test('a donor signs up, lands on their home and can sign out and back in', async ({ page }) => {

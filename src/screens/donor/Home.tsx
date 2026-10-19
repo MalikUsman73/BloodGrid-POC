@@ -4,13 +4,14 @@ import { eligibleOn } from '../../data/dates';
 import { sectorDistanceKm } from '../../data/sectors';
 import { DEFAULT_CONFIG } from '../../engine';
 import type { DonorOffer } from '../../data';
-import { formatDate, plural } from '../../lib/labels';
+import { formatDate, plural, timeLeft } from '../../lib/labels';
 import { useApp } from '../../state/AppContext';
 import { useSession } from '../../state/Session';
 import { Alert, Badge, Button, GroupChip, PageHeader, Switch, type Tone } from '../../ui/kit';
 import { IconClock, IconPin, IconRefresh } from '../../ui/icons';
 import { EmptyState, ErrorState, Loading } from '../../ui/States';
 import { useToast } from '../../ui/Toast';
+import { findHospital } from '../../workflow';
 import { useDonorData } from './useDonorData';
 
 const urgencyTone = (u: string): Tone => (u === 'Critical' ? 'bad' : u === 'Urgent' ? 'warn' : 'neutral');
@@ -26,7 +27,7 @@ export function Home() {
     setPending(offer.id);
     try {
       await repo.respond(offer.id, state);
-      toast.success(state === 'Accepted' ? 'Thank you. The recipient will be told you can help.' : 'No problem. You will not be asked about this request again.');
+      toast.success(state === 'Accepted' ? 'Thank you. The hospital will be told you can help.' : 'No problem. You will not be asked about this request again.');
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not send your answer.');
@@ -60,6 +61,7 @@ export function Home() {
 
   const open = offers.filter((o) => o.state === 'Sent' && o.requestStatus === 'Awaiting response');
   const waiting = offers.filter((o) => o.state === 'Accepted' && o.requestStatus === 'Awaiting response');
+  const going = offers.filter((o) => o.state === 'Accepted' && o.requestStatus === 'Confirmed');
   const eligible = profile.daysSinceDonation >= DEFAULT_CONFIG.cooldownDays;
   const progress = Math.min(1, profile.daysSinceDonation / DEFAULT_CONFIG.cooldownDays);
   const first = account?.fullName.split(' ')[0] ?? '';
@@ -91,12 +93,17 @@ export function Home() {
                   <GroupChip group={o.group} />
                   <div className="t">
                     <b>{plural(o.units, 'unit')} of {o.group} needed</b>
-                    <span>Request {o.requestCode} · {formatDate(o.offeredAt)}</span>
+                    <span>Request {o.requestCode} · {formatDate(o.offeredAt)} · {timeLeft(o.deadline) ?? 'closing'}</span>
                   </div>
                   <Badge tone={urgencyTone(o.urgency)}>{o.urgency}</Badge>
                 </div>
+                {o.verification === 'Unverified' && (
+                  <p className="hint" style={{ margin: '0 0 8px' }}>
+                    Unverified: BloodGrid could not check every detail of this request. Donation is always free; report anything that looks wrong from History.
+                  </p>
+                )}
                 <div className="mini-kv">
-                  <div><span>Hospital sector</span><b>{o.sector}</b></div>
+                  <div><span>Hospital</span><b>{findHospital(o.hospitalId)?.name ?? o.sector}</b></div>
                   <div><span>From your sector</span><b className="num">{sectorDistanceKm(profile.sector, o.sector).toFixed(1)} km</b></div>
                   <div><span>Your group</span><b>{profile.group}</b></div>
                 </div>
@@ -110,7 +117,15 @@ export function Home() {
           {waiting.length > 0 && (
             <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
               <Alert tone="ok" title={`You said yes to ${plural(waiting.length, 'request')}`}>
-                {waiting.map((w) => w.requestCode).join(', ')}. The recipient will confirm once enough donors have accepted.
+                {waiting.map((w) => w.requestCode).join(', ')}. The request is confirmed once enough donors have accepted.
+              </Alert>
+            </div>
+          )}
+          {going.length > 0 && (
+            <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
+              <Alert tone="info" title="Please go and donate">
+                {going.map((g) => `${g.requestCode} at ${findHospital(g.hospitalId)?.name ?? g.sector}`).join('; ')}. The person who asked confirms
+                your donation afterwards. Donation is always free: if anyone asks you for money, report it from History.
               </Alert>
             </div>
           )}
@@ -137,12 +152,24 @@ export function Home() {
             </p>
           </section>
 
+          {profile.thanks.length > 0 && (
+            <section className="card card-body" aria-labelledby="thanks-h">
+              <h2 id="thanks-h" style={{ fontSize: 15, fontWeight: 650, marginBottom: 12 }}>Thank you notes</h2>
+              <ul className="plain-list">
+                {profile.thanks.slice(0, 5).map((t) => (
+                  <li key={t.at}><span>“{t.note}”<span className="hint" style={{ display: 'block' }}>{formatDate(t.at)}</span></span></li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="card card-body">
             <dl className="kv" style={{ gridTemplateColumns: '110px 1fr' }}>
               <dt>Donor code</dt><dd className="mono">{profile.code}</dd>
               <dt>Blood group</dt><dd><GroupChip group={profile.group} /></dd>
               <dt><IconPin style={{ width: 14, height: 14, display: 'inline', verticalAlign: '-2px' }} /> Sector</dt><dd>{profile.sector}</dd>
               <dt><IconClock style={{ width: 14, height: 14, display: 'inline', verticalAlign: '-2px' }} /> Answered</dt><dd className="num">{profile.accepted} yes</dd>
+              <dt>Donated</dt><dd className="num">{profile.donated}</dd>
             </dl>
             <p className="hint" style={{ marginTop: 14 }}><Link to="/donor/history">See all requests you were asked about</Link></p>
           </section>
