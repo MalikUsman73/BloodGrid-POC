@@ -14,7 +14,8 @@ export const OBJECTIVES: {
 ];
 
 export const ALGORITHMS: Record<AlgorithmId, { label: string; note: string }> = {
-  pareto: { label: 'Exact Pareto selection', note: 'Every contact set evaluated; one chosen from the non-dominated sets by urgency' },
+  nsga3: { label: 'NSGA-III', note: 'Evolutionary search over contact sets; one chosen from the non-dominated sets by urgency' },
+  pareto: { label: 'Exact Pareto selection', note: 'Every contact set evaluated, when the pool is small enough; used to check NSGA-III' },
   weighted: { label: 'Weighted sum', note: 'The prototype score: one number per donor, top k taken' },
   greedy: { label: 'Sequential greedy', note: 'Nearest first, then exact group, then rarity' },
   nearest: { label: 'Nearest compatible', note: 'The k closest eligible donors' },
