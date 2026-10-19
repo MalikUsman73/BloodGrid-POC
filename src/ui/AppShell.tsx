@@ -69,10 +69,18 @@ export function AppShell({ items, roleLabel }: { items: NavItem[]; roleLabel: st
       </aside>
 
       <div className="main">
+        <header className="top-bar">
+          <span className="top-user">Signed in as <b>{name}</b> · {roleLabel}</span>
+          <button className="btn sm" onClick={() => void leave()}>
+            <IconLogout />
+            Sign out
+          </button>
+        </header>
         <header className="mobile-bar">
           <Brand />
-          <button className="avatar" onClick={() => void leave()} aria-label={`Sign out ${name}`} title="Sign out">
-            {initials(name)}
+          <button className="mobile-signout" onClick={() => void leave()}>
+            <IconLogout />
+            Sign out
           </button>
         </header>
         <main className="content" id="content" tabIndex={-1}>

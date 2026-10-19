@@ -47,11 +47,24 @@
 .crumb:hover { color: var(--text); }
 .crumb svg { width: 14px; height: 14px; transform: rotate(180deg); }
 
+.top-bar {
+  display: flex; align-items: center; justify-content: flex-end; gap: 14px; height: 56px; padding: 0 32px;
+  background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+}
+.top-user { color: var(--text-2); font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-user b { color: var(--text); font-weight: 600; }
+.top-bar .btn svg { width: 16px; height: 16px; }
+.mobile-signout {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: var(--radius);
+  border: 1px solid #334155; background: transparent; color: #e2e8f0; font-weight: 600; cursor: pointer;
+}
+.mobile-signout svg { width: 16px; height: 16px; }
 .mobile-bar, .bottom-nav { display: none; }
 
 @media (max-width: 920px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
+  .top-bar { display: none; }
   .mobile-bar {
     display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 16px; background: var(--nav-bg);
     position: sticky; top: 0; z-index: 20;
