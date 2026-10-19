@@ -4,5 +4,6 @@ export * from './setSize';
 export * from './filters';
 export * from './objectives';
 export * from './selection';
+export * from './nsga3';
 export * from './baselines';
 export * from './match';

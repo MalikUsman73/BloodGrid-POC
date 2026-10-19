@@ -58,7 +58,8 @@ export function NewRequest() {
     try {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const fresh = await repo.getPool(sector);
-        const outcome = runMatch(fresh.donors, request);
+        // A 4 second budget: past it the greedy set is used and the result says so.
+        const outcome = runMatch(fresh.donors, request, DEFAULT_CONFIG, {}, { nsga3: { deadlineMs: 4000 } });
         if (outcome.status === 'empty-pool' || outcome.status === 'none-eligible') {
           setFailed(outcome);
           return;
@@ -68,7 +69,7 @@ export function NewRequest() {
             request: { ...request, k: outcome.k },
             donors: outcome.selected.map((s, i) => ({ donorId: s.donor.id, rank: i + 1, p: s.p, cost: s.cost })),
             audit: {
-              algorithm: 'pareto',
+              algorithm: outcome.algorithm,
               engineVersion: ENGINE_VERSION,
               poolHash: poolHash(fresh.donors),
               poolSize: outcome.poolSize,
