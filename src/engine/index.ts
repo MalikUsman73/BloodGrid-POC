@@ -2,6 +2,7 @@ export * from './types';
 export * from './compatibility';
 export * from './setSize';
 export * from './filters';
+export * from './priority';
 export * from './objectives';
 export * from './selection';
 export * from './nsga3';

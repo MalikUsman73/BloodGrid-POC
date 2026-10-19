@@ -17,6 +17,10 @@ export interface Donor {
   available: boolean;
   /** Id of an open request this donor is already committed to, or null. */
   heldBy: string | null;
+  /** Urgency of the request holding this donor, when one does. Used to settle conflicts between requests. */
+  heldUrgency?: Urgency | null;
+  /** True when the donor has already accepted the request holding them. */
+  heldAccepted?: boolean;
   contactsLast30d: number;
   accepted: number;
   received: number;
@@ -27,6 +31,8 @@ export interface MatchRequest {
   units: number;
   urgency: Urgency;
   sector: string;
+  /** Donors never to ask for this request, such as those who already answered an earlier round. */
+  exclude?: readonly string[];
 }
 
 export interface MatchConfig {

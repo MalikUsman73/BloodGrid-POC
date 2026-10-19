@@ -65,6 +65,8 @@ export interface MatchOutcome {
   comparison: AlgorithmOutcome[];
   /** Human-readable notes: a shortfall, a shortlist, an empty result. */
   warnings: string[];
+  /** Selected donors taken from a less urgent request that had not yet heard back from them. */
+  preempted: string[];
   context: PoolContext;
 }
 
@@ -101,7 +103,10 @@ export function runMatch(
   const algorithm = options.algorithm ?? 'nsga3';
   const k = contactSetSize(request.units, request.urgency);
   const screening = screenDonors(pool, request, config);
-  const ctx = buildContext(screening.eligible, request.recipientGroup, config, risk);
+  // Taking a donor from another request is a last resort: only when free donors cannot fill the set.
+  const free = screening.eligible.filter((d) => d.heldBy === null);
+  const eligible = free.length >= k ? free : screening.eligible;
+  const ctx = buildContext(eligible, request.recipientGroup, config, risk);
   const base = {
     algorithm,
     generations: 0,
@@ -111,47 +116,47 @@ export function runMatch(
     poolSize: pool.length,
     stages: screening.stages,
     rejections: screening.rejections,
-    eligibleCount: screening.eligible.length,
+    eligibleCount: eligible.length,
     context: ctx,
   };
 
   if (pool.length === 0) {
     return {
       ...base, status: 'empty-pool', selected: [], objectives: null, front: [], evaluated: 0,
-      shortlisted: false, comparison: [], warnings: ['The donor pool is empty.'],
+      shortlisted: false, comparison: [], warnings: ['The donor pool is empty.'], preempted: [],
     };
   }
-  if (screening.eligible.length === 0) {
+  if (eligible.length === 0) {
     return {
       ...base, status: 'none-eligible', selected: [], objectives: null, front: [], evaluated: 0,
       shortlisted: false, comparison: [],
-      warnings: ['No donor passes every screening rule for this request.'],
+      warnings: ['No donor passes every screening rule for this request.'], preempted: [],
     };
   }
 
   // The seed comes from the request and the eligible donors, so the same inputs give the same set.
   const seed = hashSeed(
-    `${request.recipientGroup}|${request.units}|${request.urgency}|${request.sector}|${screening.eligible.map((d) => d.id).sort().join(',')}`,
+    `${request.recipientGroup}|${request.units}|${request.urgency}|${request.sector}|${eligible.map((d) => d.id).sort().join(',')}`,
   );
-  const exactSearch = () => paretoFront(screening.eligible, k, ctx, request.urgency);
-  const nsga = algorithm === 'nsga3' ? nsga3Front(screening.eligible, k, ctx, request.urgency, { seed, ...options.nsga3 }) : null;
+  const exactSearch = () => paretoFront(eligible, k, ctx, request.urgency);
+  const nsga = algorithm === 'nsga3' ? nsga3Front(eligible, k, ctx, request.urgency, { seed, ...options.nsga3 }) : null;
   const search = nsga
     ? { front: nsga.front, evaluated: nsga.evaluated, shortlisted: false, poolUsed: nsga.poolUsed }
     : exactSearch();
   // The exact front is the oracle: computed only when the pool is small enough to enumerate.
   const oracle =
-    nsga && !nsga.exact && !nsga.fellBack && combinations(screening.eligible.length, k) <= ctx.config.maxCombinations
+    nsga && !nsga.exact && !nsga.fellBack && combinations(eligible.length, k) <= ctx.config.maxCombinations
       ? exactSearch()
       : null;
   const chosen = selectFromFront(search.front, request.urgency);
-  const byId = new Map(screening.eligible.map((d) => [d.id, d]));
+  const byId = new Map(eligible.map((d) => [d.id, d]));
   const selectedDonors = (chosen?.donorIds ?? []).map((id) => byId.get(id) as Donor);
 
   const warnings: string[] = [];
-  const partial = screening.eligible.length < k;
+  const partial = eligible.length < k;
   if (partial) {
     warnings.push(
-      `Only ${screening.eligible.length} eligible ${screening.eligible.length === 1 ? 'donor is' : 'donors are'} available for a contact set of ${k}. All of them are notified.`,
+      `Only ${eligible.length} eligible ${eligible.length === 1 ? 'donor is' : 'donors are'} available for a contact set of ${k}. All of them are notified.`,
     );
   }
   if (nsga?.fellBack) {
@@ -163,16 +168,23 @@ export function runMatch(
     );
   }
 
+  const preempted = selectedDonors.filter((d) => d.heldBy !== null).map((d) => d.id);
+  if (preempted.length > 0) {
+    warnings.push(
+      `${preempted.length} selected ${preempted.length === 1 ? 'donor was' : 'donors were'} waiting on a less urgent request. This critical request takes priority, and that request is told to find a replacement.`,
+    );
+  }
+
   const reference = oracle ? oracle.front : search.front;
   const comparison: AlgorithmOutcome[] = [
     outcomeFor(algorithm, selectedDonors, ctx, reference),
-    outcomeFor('weighted', weightedSum(screening.eligible, k, request.urgency, ctx), ctx, reference),
-    outcomeFor('greedy', sequentialGreedy(screening.eligible, k, ctx), ctx, reference),
-    outcomeFor('nearest', nearestCompatible(screening.eligible, k), ctx, reference),
+    outcomeFor('weighted', weightedSum(eligible, k, request.urgency, ctx), ctx, reference),
+    outcomeFor('greedy', sequentialGreedy(eligible, k, ctx), ctx, reference),
+    outcomeFor('nearest', nearestCompatible(eligible, k), ctx, reference),
   ];
   if (nsga && oracle) {
     const exactChoice = selectFromFront(oracle.front, request.urgency);
-    const byDonorId = new Map(screening.eligible.map((d) => [d.id, d]));
+    const byDonorId = new Map(eligible.map((d) => [d.id, d]));
     const exactSet = (exactChoice?.donorIds ?? []).map((id) => byDonorId.get(id) as Donor);
     comparison.splice(1, 0, outcomeFor('pareto', exactSet, ctx, reference));
   }
@@ -189,6 +201,7 @@ export function runMatch(
     igd: nsga && oracle ? igd(nsga.front, oracle.front) : null,
     comparison,
     warnings,
+    preempted,
   };
 }
 

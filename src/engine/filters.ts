@@ -1,4 +1,5 @@
 import { isCompatible } from './compatibility';
+import { canPreempt } from './priority';
 import type { Donor, MatchConfig, MatchRequest } from './types';
 
 export type FilterId = 'compatibility' | 'availability' | 'interval' | 'radius' | 'contactCap';
@@ -43,8 +44,11 @@ const RULES: Rule[] = [
   {
     id: 'availability',
     label: 'Available and not on hold',
-    rule: () => 'Marked available and not committed to another open request',
-    passes: (d) => d.available && d.heldBy === null,
+    rule: () => 'Marked available, not already asked for this request, and not committed to another open request',
+    passes: (d, r) =>
+      d.available &&
+      !(r.exclude ?? []).includes(d.id) &&
+      (d.heldBy === null || canPreempt(r.urgency, d.heldUrgency, d.heldAccepted)),
   },
   {
     id: 'interval',
